@@ -29,7 +29,7 @@ export default class WelcomeCommand implements Command {
                         new MessageButton()
                             .setLabel('Support On Patreon')
                             .setStyle('LINK')
-                            .setURL('https://www.patreon/faizandurrani')
+                            .setURL('https://www.patreon.com/FaizanDurrani')
                     )
             ]
         })
