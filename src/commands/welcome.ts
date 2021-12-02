@@ -23,19 +23,19 @@ export default class WelcomeCommand implements Command {
                 new MessageActionRow()
                     .addComponents(
                         new MessageButton()
-                            .setLabel('I Need Help')
+                            .setLabel('I need help')
                             .setCustomId('selfHelpInteraction')
                             .setStyle('PRIMARY'),
                         new MessageButton()
-                            .setLabel('My Issue Isn\'t Listed')
+                            .setLabel('My issue isn\'t listed')
                             .setCustomId('supportThreadConfirmationInteraction')
                             .setStyle('DANGER'),
                         new MessageButton()
-                            .setLabel('I Want to Chat')
+                            .setLabel('I want to chat')
                             .setCustomId('serverRulesAcknowledgementInteraction')
                             .setStyle('SECONDARY'),
                         new MessageButton()
-                            .setLabel('Support On Patreon')
+                            .setLabel('Support on Patreon')
                             .setStyle('LINK')
                             .setURL('https://www.patreon.com/FaizanDurrani')
                     )
