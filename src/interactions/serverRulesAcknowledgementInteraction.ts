@@ -30,7 +30,7 @@ export default class ServerRulesAcknowledgementInteraction implements IExecutabl
                 case 'deny':
                     break
                 default:
-                    await interaction.followUp({ content: 'Invalid option selected', ephemeral: true })
+                    await interaction.followUp({ content: 'Invalid option selected.', ephemeral: true })
                     break
             }
             return
@@ -44,7 +44,7 @@ export default class ServerRulesAcknowledgementInteraction implements IExecutabl
 
         const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction('serverRulesAcknowledgement')
         if (!liveInteraction) {
-            await interaction.editReply('Unable to find \'serverRulesAcknowledgement\' live interaction, please make sure its loaded')
+            await interaction.editReply('Unable to find \'serverRulesAcknowledgement\' live interaction, please make sure it\'s loaded.')
             return
         }
 
@@ -68,7 +68,7 @@ export default class ServerRulesAcknowledgementInteraction implements IExecutabl
 
     async assignMemberRoleToGuildMember(guildMember: GuildMember): Promise<void> {
         if (guildMember.roles.cache.has(Constants.MEMBER_ROLE_ID)) {
-            throw new Error('You already have the role')
+            throw new Error('You already have the role.')
         }
 
         await guildMember.roles.add(Constants.MEMBER_ROLE_ID)
