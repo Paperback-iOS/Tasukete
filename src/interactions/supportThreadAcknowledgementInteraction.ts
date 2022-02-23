@@ -1,129 +1,92 @@
-import { ButtonInteraction, CacheType, Interaction, MessageActionRow, MessageButton, TextChannel } from 'discord.js'
-import { discordBot } from '..'
-import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
-import { MultiButtonOptionInteraction } from './interaction'
+import { Interaction, Message, MessageActionRow, MessageButton, MessageEmbed, MessageFlags, MessagePayload, TextChannel } from "discord.js";
+import { discordBot } from "..";
+import { Constants } from "../constants";
+import { MessageLiveInteraction } from "../models/MessageLiveInteraction";
+import { IExecutableInteraction } from "./interaction";
 
-export default class SupportThreadConfirmationInteraction extends MultiButtonOptionInteraction {
-    async executeDefaultOption(interaction: ButtonInteraction<CacheType>): Promise<void> {
-        await interaction.reply({content:'Invalid option', ephemeral:true})
-    }
+export default class SupportThreadConfirmationInteraction implements IExecutableInteraction {
+    async execute(interaction: Interaction): Promise<void> {
+        if (!interaction.isButton()) return
 
-    async executeWithOption(option: string, interaction: ButtonInteraction<CacheType>): Promise<void> {
-        if (option.startsWith('display')) {
-            const configName = option.split('&')[1]
-            if (!configName) {
-                await interaction.editReply('**ERROR:** `configName` not set')
-                return
-            }
-    
-            const config = discordBot.liveConfig.modules?.supportThreads?.configs?.[configName]
-            if (!config) {
-                await interaction.editReply('**ERROR:** Could not find the support thread config ' + configName)
-                return
-            }
+        const metadata = interaction.customId.split('#')
+        if (metadata.length > 1 && metadata[0] === 'supportThreadAcknowledgementInteraction') {
+            await interaction.update({ components: [] })
 
-            const interactionId = config.supportThreadConfirmationInteractionPath
-            if (!interactionId) {
-                await interaction.editReply('supportThreadConfirmationInteractionPath not set')
-                return
-            }
+            switch (metadata[1]) {
+                case 'accept':
+                    const supportChannel = await discordBot.client.channels.fetch(Constants.SUPPORT_CHANNEL_ID)
+                    if (!supportChannel) {
+                        await interaction.followUp({ content: 'Could not fetch support channel details.', ephemeral: false })
+                        return
+                    }
 
-            const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction(interactionId)
-            if (!liveInteraction) {
-                await interaction.editReply('Unable to find \'supportDisclaimer\' live interaction, please make sure its loaded')
-                return
-            }
+                    if (!supportChannel.isText()) {
+                        await interaction.followUp({ content: 'Support channel is not a text channel.', ephemeral: false })
+                        return
+                    }
 
-            await new MessageLiveInteraction(liveInteraction)
-                .replyToInteraction(interaction, {
-                    components: [
-                        new MessageActionRow()
-                            .addComponents(
-                                new MessageButton()
-                                    .setLabel('Continue')
-                                    .setStyle('DANGER')
-                                    .setCustomId('supportThreadAcknowledgementInteraction#accept&'+configName),
-                                new MessageButton()
-                                    .setLabel('Cancel')
-                                    .setStyle('PRIMARY')
-                                    .setCustomId('supportThreadAcknowledgementInteraction#deny'),
-                        
-                                ...(() => config.troubleshootButton != undefined ? [
-                                    new MessageButton()
-                                        .setCustomId('liveInteraction#' + config.troubleshootInteractionPath)
-                                        .setLabel(config.troubleshootButton?.title ?? 'Troubleshoot')
-                                        .setStyle(config.troubleshootButton?.type ?? 'SUCCESS'),
-                                ] : [])()
-                            )
-                    ]
-                })
-        } else if (option.startsWith('accept')) {
-            const configName = option.split('&')[1]
-            if (!configName) {
-                await interaction.editReply('**ERROR:** `configName` not set')
-                return
-            }
-    
-            const config = discordBot.liveConfig.modules?.supportThreads?.configs?.[configName]
-            if (!config) {
-                await interaction.editReply('**ERROR:** Could not find the support thread config ' + configName)
-                return
-            }
+                    if (!(supportChannel as TextChannel).threads) {
+                        await interaction.followUp({ content: 'Support channel is does not allow threads.', ephemeral: false })
+                        return
+                    }
 
-            const supportChannelId = config.supportThreadChannel
-            if (!supportChannelId) {
-                await interaction.followUp({ content: 'supportChannelId not set.', ephemeral: false })
-                return
-            }
-            
-            const supportChannel = discordBot.client.channels.cache.get(supportChannelId)
-            if (!supportChannel) {
-                await interaction.followUp({ content: 'Could not fetch support channel details.', ephemeral: false })
-                return
-            }
+                    const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction('supportThreadPrompt')
+                    if (!liveInteraction) {
+                        await interaction.followUp({ content: 'Unable to find \'supportThreadPrompt\' live interaction, please make sure its loaded', ephemeral: false })
+                        return
+                    }
 
-            if (!supportChannel.isText()) {
-                await interaction.followUp({ content: 'Support channel is not a text channel.', ephemeral: false })
-                return
-            }
+                    try {
+                        const thread = await (supportChannel as TextChannel).threads.create({
+                            name: `Support Thread - ${interaction.user.id}`,
+                            autoArchiveDuration: 60,
+                            type: "GUILD_PUBLIC_THREAD",
+                            invitable: true
+                        })
 
-            if (!(supportChannel as TextChannel).threads) {
-                await interaction.followUp({ content: 'Support channel does not allow threads.', ephemeral: false })
-                return
+                        await thread.members.add(interaction.user)
+                        await thread.send(new MessageLiveInteraction(liveInteraction).toMessage())
+                        await thread.setLocked(true)
+                    } catch (error: any) {
+                        await interaction.editReply('Unable to create a thread.')
+                        console.error(error)
+                    }
+                    break
+                default:
+                    await interaction.followUp({ content: 'Invalid option selected', ephemeral: true })
+                    break
             }
-
-            const liveInteractionId = config.supportThreadDisplayInteractionPath
-            if (!liveInteractionId) {
-                await interaction.followUp({ content: 'supportThreadDisplayInteractionPath not set', ephemeral: false })
-                return
-            }
-
-            const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction(liveInteractionId)
-            if (!liveInteraction) {
-                await interaction.followUp({ content: 'Unable to find \''+liveInteractionId+'\' live interaction, please make sure its loaded', ephemeral: false })
-                return
-            }
-
-            try {
-                const thread = await (supportChannel as TextChannel).threads.create({
-                    name: `Support Thread - ${interaction.user.id}`,
-                    autoArchiveDuration: 60,
-                    type: 'GUILD_PUBLIC_THREAD',
-                    invitable: true
-                })
-
-                await thread.members.add(interaction.user)
-                await thread.send(new MessageLiveInteraction(liveInteraction).toMessage())
-                await thread.setLocked(true)
-            } catch (error: any) {
-                await interaction.editReply('Unable to create a thread.')
-                console.error(error)
-            }
-        } else if (option.startsWith('deny')) {
-            return
-        } else {
-            await interaction.followUp({ content: 'Invalid option selected', ephemeral: true })
             return
         }
+
+        console.log((interaction.message.flags?.valueOf() ?? 0) & MessageFlags.resolve('EPHEMERAL'))
+        if ((interaction.message.flags?.valueOf() ?? 0) & MessageFlags.resolve('EPHEMERAL')) {
+            await interaction.deferUpdate()
+        } else {
+            await interaction.deferReply({ephemeral: true})
+        }
+
+        const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction('supportDisclaimer')
+        if (!liveInteraction) {
+            await interaction.editReply('Unable to find \'supportDisclaimer\' live interaction, please make sure its loaded')
+            return
+        }
+
+        await new MessageLiveInteraction(liveInteraction)
+            .replyToInteraction(interaction, {
+                components: [
+                    new MessageActionRow()
+                        .addComponents([
+                            new MessageButton()
+                                .setLabel('I Understand, Open Thread')
+                                .setStyle('DANGER')
+                                .setCustomId('supportThreadAcknowledgementInteraction#accept'),
+                            new MessageButton()
+                                .setLabel('Display Help Topics')
+                                .setStyle('PRIMARY')
+                                .setCustomId('selfHelpInteraction')
+                        ])
+                ]
+            })
     }
 }
