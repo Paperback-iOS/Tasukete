@@ -24,7 +24,7 @@ export default class VerificationCommand implements Command {
             }
         }
 
-        const liveInteractionId = discordBot.liveConfig.modules?.verification?.interactions?.initialMessageInteractionPath
+        const liveInteractionId = discordBot.liveConfig.modules?.verification?.interactions?.initial_message
         if (!liveInteractionId) {
             await interaction.editReply('**ERROR:** `interactions.initial_message` not set')
             return

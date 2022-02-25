@@ -7,7 +7,7 @@ export default class VerificationInteraction extends MultiButtonOptionInteractio
     async executeDefaultOption(interaction: ButtonInteraction): Promise<void> {
         await interaction.deferReply({ephemeral: true})
 
-        const liveInteractionId = discordBot.liveConfig.modules?.verification?.interactions?.rulesAcknowledgementInteractionPath
+        const liveInteractionId = discordBot.liveConfig.modules?.verification?.interactions?.rules_acknowledgement
         if (!liveInteractionId) {
             await interaction.editReply('`interactions.rules_acknowledgement` is not set')
             return
@@ -53,7 +53,7 @@ export default class VerificationInteraction extends MultiButtonOptionInteractio
     async verifyGuildMember(member: GuildMember | undefined, interaction: ButtonInteraction) {
         if (member?.roles) {
             try {
-                const verifiedRoleId = discordBot.liveConfig.modules?.verification?.verifiedRole
+                const verifiedRoleId = discordBot.liveConfig.modules?.verification?.verified_role
                 if (!verifiedRoleId) {
                     await interaction.editReply('`verified_role` is not set')
                     return
