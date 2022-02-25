@@ -1,7 +1,7 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, Message } from 'discord.js'
-import { Command } from './command'
+import { SlashCommandBuilder } from "@discordjs/builders";
+import { RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types";
+import { CommandInteraction, Message } from "discord.js";
+import { Command } from "./command";
 
 export default class ArchiveThreadCommand implements Command {
     getCommandMetadata(): RESTPostAPIApplicationCommandsJSONBody {

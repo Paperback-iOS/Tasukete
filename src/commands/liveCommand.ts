@@ -1,6 +1,5 @@
 import { SlashCommandBuilder, SlashCommandStringOption, SlashCommandSubcommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9'
-
+import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
 import { CommandInteraction, MessagePayload } from 'discord.js'
 import { discordBot } from '..'
 import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
