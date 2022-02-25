@@ -153,10 +153,6 @@ class DiscordBotHandler {
         ])
     }
 
-    async unloadCommands() {
-        return this.registerCommands([])
-    }
-
     async loadConstants() {
         this.liveConstants = {}
 
