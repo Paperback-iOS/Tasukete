@@ -6,10 +6,6 @@ class _Constants {
         dotenv.config()
     }
 
-    get BOT_INTERNAL_LOG_CHANNEL(): string {
-        return this.fromEnvConfig('BOT_INTERNAL_LOG_CHANNEL')
-    }
-
     get DISCORD_BOT_TOKEN(): string {
         return this.fromEnvConfig('DISCORD_BOT_TOKEN')
     }

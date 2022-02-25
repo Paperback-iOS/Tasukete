@@ -14,38 +14,14 @@ export class LiveInteractionManager {
         'interactions'
     )
 
-    resolveLiveInteraction(interaction: any, constants: any = {}): LiveInteraction | undefined {
-        if (typeof interaction == 'string') {
-            return discordBot.liveInteractionManager.getLiveInteraction(
-                substituteTemplateLiterals(
-                    { ...discordBot.liveConstants, ...constants },
-                    interaction
-                ),
-                constants
-            )
-        } else if (typeof interaction == 'object') {
-            return JSON.parse(
-                substituteTemplateLiterals(
-                    { ...discordBot.liveConstants, ...constants },
-                    JSON.stringify(interaction)
-                )
-            )
-        } else {
-            return undefined
-        }
-    }
-
-    private getLiveInteraction(interactionName: string, constants: any) {
+    resolveLiveInteraction(interactionName: string): LiveInteraction | undefined {
         try {
             const interactionPath = path.join(LiveInteractionManager.liveInteractionsDir, interactionName + '.yaml')
 
             if (!fs.existsSync(interactionPath)) return undefined
 
             return yaml.load(
-                substituteTemplateLiterals(
-                    { ...discordBot.liveConstants, ...constants },
-                    fs.readFileSync(interactionPath).toString()
-                )
+                substituteTemplateLiterals(discordBot.liveConstants, fs.readFileSync(interactionPath).toString())
             ) as LiveInteraction | undefined
         } catch(error) {
             console.error(error)

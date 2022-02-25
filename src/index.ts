@@ -2,7 +2,7 @@
 import { REST } from '@discordjs/rest'
 import AdmZip from 'adm-zip'
 import { RESTPatchAPIApplicationCommandJSONBody, Routes } from 'discord-api-types/v9'
-import { AnyChannel, Client, CommandInteraction, GuildMember, Intents, MessageActionRow, MessageButton, TextBasedChannel, TextChannel } from 'discord.js'
+import { Client, CommandInteraction, Intents, MessageActionRow, MessageButton, TextBasedChannel, TextChannel } from 'discord.js'
 import { https } from 'follow-redirects'
 import { Constants } from './constants'
 import { LocalCommandManager } from './managers/commandManager'
@@ -13,7 +13,7 @@ import { LocalInteractionManager } from './managers/interactionManager'
 import { LiveInteractionManager } from './managers/liveInteractionManager'
 import yaml from 'js-yaml'
 import path from 'path'
-import { constantsFromObject, substituteTemplateLiterals } from './utils'
+import { substituteTemplateLiterals } from './utils'
 import { LiveConfig } from './models/LiveConfig'
 import { MessageLiveInteraction } from './models/MessageLiveInteraction'
 import { LiveTriggerManager } from './managers/triggerManager'
@@ -38,106 +38,77 @@ class DiscordBotHandler {
     }
 
     async initialize() {
-        try {
-            await this.loadCommands()
-            
+        await this.loadCommands()
 
-            // When the client is ready, run this code (only once)
-            this.client.once('ready', () => {
-                console.log('Ready!')
-            })
+        // When the client is ready, run this code (only once)
+        this.client.once('ready', () => {
+            console.log('Ready!')
+        })
 
-            this.client.on('guildMemberAdd', async (member) => {
-                console.log('kekw someone joined')
-                const welcomeChannelId = this.liveConfig.modules?.verification?.welcomeChannel
-                if (welcomeChannelId) {
-                    const channel = this.client.channels.cache.get(welcomeChannelId)
-                    if (channel && channel.isText())
-                        await this.sendWelcomeMessage(channel, member)
+        this.client.on('guildMemberAdd', async (member) => {
+            console.log('kekw someone joined')
+            const welcomeChannelId = this.liveConfig.modules?.verification?.welcomeChannel
+            if (welcomeChannelId) {
+                const channel = this.client.channels.cache.get(welcomeChannelId)
+                if(channel && channel.isText())
+                    await this.sendWelcomeMessage(channel)
+            }
+        })
+
+        this.client.on('threadUpdate', async (oldThread, newThread) => {
+            if (oldThread.archived || !newThread.archived) { return }
+            if (Constants.SUPPORT_CHANNEL_ID != newThread.parentId) { return }
+
+            try {
+                const starterMessage = await newThread.fetchStarterMessage()
+                await starterMessage.delete()
+            } catch(error: any) {
+                console.error(error)
+            }
+        })
+
+        this.client.on('messageCreate', async message => {
+            await this.liveTriggerManager.parseMessage(message)
+
+            if (!message.channel.isThread()) { return }
+            if (message.member?.user.bot) { return }
+            if (message.channel.autoArchiveDuration != 60) { return }
+            if (Constants.SUPPORT_CHANNEL_ID != message.channel.parentId) { return }
+
+            await message.channel.send({content: 'Setting archive duration to **24** hours due to activity'})
+            await message.channel.setAutoArchiveDuration(1440)
+        })
+
+        this.client.on('interactionCreate', async interaction => {
+            try {
+                if (interaction.isCommand()) {
+                    const CommandClass =
+                        this.localCommandManager.resolveLocalCommand(interaction.commandName) ??
+                        this.liveCommandManager.resolveLiveCommand(interaction.commandName)
+                    if (!CommandClass) return
+
+                    const commandInstance = new CommandClass()
+                    await commandInstance.execute(interaction)
+                } else if (interaction.isButton() || interaction.isSelectMenu()) {
+                    const ExecutableInteractionClass = this.localInteractionManager.resolveInteraction(interaction.customId)
+                    if (!ExecutableInteractionClass) return
+
+                    const executableInteractionInstance = new ExecutableInteractionClass()
+                    await executableInteractionInstance.execute(interaction)
                 }
-            })
+            } catch (error) {
+                console.error(error)
+                if (!interaction.isCommand() && !interaction.isSelectMenu() && !interaction.isMessageComponent()) return
 
-            this.client.on('threadUpdate', async (oldThread, newThread) => {
-                if (oldThread.archived || !newThread.archived) { return }
-                if (Constants.SUPPORT_CHANNEL_ID != newThread.parentId) { return }
+                await interaction.followUp({ content: '**ERROR**: ' + error, ephemeral: true })
+            }
+        })
 
-                try {
-                    const starterMessage = await newThread.fetchStarterMessage()
-                    await starterMessage.delete()
-                } catch (error: any) {
-                    await this.logInternalError(error)
-                }
-            })
 
-            this.client.on('messageCreate', async message => {
-                await this.liveTriggerManager.parseMessage(message)
+        // Login to Discord with your client's token
+        await this.client.login(Constants.DISCORD_BOT_TOKEN)
 
-                if (!message.channel.isThread()) { return }
-                if (message.member?.user.bot) { return }
-                if (message.channel.autoArchiveDuration != 60) { return }
-                if (Constants.SUPPORT_CHANNEL_ID != message.channel.parentId) { return }
 
-                await message.channel.send({ content: 'Setting archive duration to **24** hours due to activity' })
-                await message.channel.setAutoArchiveDuration(1440)
-            })
-
-            this.client.on('interactionCreate', async interaction => {
-                try {
-                    if (interaction.isCommand()) {
-                        const CommandClass =
-                            this.localCommandManager.resolveLocalCommandClass(interaction.commandName) ??
-                            this.liveCommandManager.resolveLiveCommandClass(interaction.commandName, interaction.options.getSubcommand(false) ?? undefined)
-                        if (!CommandClass) return
-
-                        const commandInstance = new CommandClass()
-                        await commandInstance.execute(interaction)
-                    } else if (interaction.isButton() || interaction.isSelectMenu()) {
-                        const ExecutableInteractionClass = this.localInteractionManager.resolveInteraction(interaction.customId)
-                        if (!ExecutableInteractionClass) return
-
-                        const executableInteractionInstance = new ExecutableInteractionClass()
-                        await executableInteractionInstance.execute(interaction)
-                    }
-                } catch (error) {
-                    if (!interaction.isCommand() && !interaction.isSelectMenu() && !interaction.isMessageComponent()) {
-                        await this.logInternalError(error)
-                        return
-                    }
-
-                    console.error(error)
-                    await interaction.followUp({ content: '**ERROR**: ' + error, ephemeral: true })
-                }
-            })
-
-            this.client.on('error', async error => {
-                await this.logInternalError(error)
-            })
-
-            // Login to Discord with your client's token
-            await this.client.login(Constants.DISCORD_BOT_TOKEN)
-        } catch (error: any) {
-            console.log('interal error')
-            await this.client.login(Constants.DISCORD_BOT_TOKEN)
-            await this.logInternalError(error)
-            this.client.destroy()
-        }
-    }
-
-    async logInternalError(error: any) {
-        console.log(error)
-
-        const channelId = Constants.BOT_INTERNAL_LOG_CHANNEL
-        if (!channelId) return
-        
-        let channel: AnyChannel | null | undefined = this.client.channels.cache.get(channelId)
-        if (!channel) {
-            channel = await this.client.channels.fetch(channelId)
-        }
-
-        if (!channel?.isText()) return
-
-        await channel.send(`**INTERNAL UNHANDLED ERROR**\n${error}`)
-        this.client.destroy()
     }
 
     async loadCommands() {
@@ -274,17 +245,14 @@ class DiscordBotHandler {
         })
     }
 
-    async sendWelcomeMessage(channel: TextBasedChannel, member: GuildMember) {
+    async sendWelcomeMessage(channel: TextBasedChannel) {
         const liveInteractionId = discordBot.liveConfig.modules?.verification?.interactions?.initialMessageInteractionPath
         if (!liveInteractionId) {
             await channel.send('**ERROR:** `interactions.initial_message` not set')
             return
         }
         
-        const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction(
-            liveInteractionId,
-            constantsFromObject(member)
-        )
+        const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction(liveInteractionId)
         if (!liveInteraction) {
             await channel.send('**ERROR:** Unable to parse live interaction for id ' + liveInteractionId)
             return
