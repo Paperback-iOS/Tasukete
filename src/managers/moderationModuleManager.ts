@@ -24,7 +24,7 @@ export class ModerationModuleManager extends MutexBasedManager {
             const actionQueue = this.getAllQueuedModerationActions()
             for (const document of Object.values(actionQueue)) {
                 const action = document.readOnlyValue()
-                
+
                 if (Date.now() < action.executionTime.getTime()) continue
         
                 await this.handleModerationAction(action)
@@ -200,11 +200,11 @@ export class ModerationModuleManager extends MutexBasedManager {
         return {
             title: 'Moderation Action',
             description: stripIndent`
-            Queue Time: <t:${(action.queueTime.getTime() / 1000).toFixed(0)}>
-            Exec Time: <t:${(action.executionTime.getTime() / 1000).toFixed(0)}>
-            Reason: ${action.reason}
-            Moderator: <@${action.moderator}>
-            Target: <@${action.target}>
+            **QUEUE TIME:** <t:${(action.queueTime.getTime() / 1000).toFixed(0)}>
+            **EXEC TIME:** <t:${(action.executionTime.getTime() / 1000).toFixed(0)}>
+            **REASON:** ${action.reason}
+            **MODERATOR:** <@${action.moderator}>
+            **TARGET:** <@${action.target}>
             `,
             fields: action.subactions.map(action => ({
                 name: 'Action',
