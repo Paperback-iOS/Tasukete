@@ -50,46 +50,50 @@ export class ModerationModuleManager extends MutexBasedManager {
             target: member.id
         }
         const guild = await discordBot.guild
+        const user = document.readOnlyValue()
 
-        await document.modifyValue(async user => {
-            const action = this.getWarnAction(user.warns, this.moduleConfig?.warnConfig?.levels, this.moduleConfig?.warnConfig?.cooldownPeriod)
-            if (!action) {
-                throw new Error('Unable to determine the action to take for this warn')
-            }
-                
-            switch (action.action) {
-            case 'BAN':
-                await member.ban({ reason: reason })
-                        
-                moderationAction.subactions.push({
-                    type: 'BAN',
-                    metadata: member.id
-                })
-                break
-            case 'MUTE':
-                await this.muteMember(
-                    member,
-                    moderator,
-                    reason,
-                    parseHumanDate(action.duration ?? '99 years')
-                )
-                        
-                moderationAction.subactions.push({
-                    type: 'MUTE',
-                    metadata: 'DURATION: ' + action.duration
-                })
-                break
-            default:
-                break
-            }
-                
-            user.warns = [...(user.warns ?? []), {
-                date: date,
-                moderator: moderator.id,
-                reason: reason,
-                action: action
-            }]
-        })
+        const action = this.getWarnAction(
+            user.warns,
+            this.moduleConfig?.warnConfig?.levels,
+            this.moduleConfig?.warnConfig?.cooldownPeriod
+        )
+
+        if (!action) {
+            throw new Error('Unable to determine the action to take for this warn')
+        }
+
+        switch (action.action) {
+        case 'BAN':
+            await member.ban({ reason: reason })
+
+            moderationAction.subactions.push({
+                type: 'BAN',
+                metadata: member.id
+            })
+            break
+        case 'MUTE':
+            await this.muteMember(
+                member,
+                moderator,
+                reason,
+                parseHumanDate(action.duration ?? '99 years')
+            )
+
+            moderationAction.subactions.push({
+                type: 'MUTE',
+                metadata: 'DURATION: ' + action.duration
+            })
+            break
+        default:
+            break
+        }
+
+        await document.set('warns', [...(user.warns ?? []), {
+            date: date,
+            moderator: moderator.id,
+            reason: reason,
+            action: action
+        }])
 
         await this.logModerationAction(moderationAction)
 
@@ -173,7 +177,7 @@ export class ModerationModuleManager extends MutexBasedManager {
                 await target.roles.add(subaction.metadata, action.reason)
                 break
             case ModerationActionType.ROLE_REMOVE:
-                await target.roles.remove(subaction.metadata, action.reason) 
+                await target.roles.remove(subaction.metadata, action.reason)
                 break
             }
         }
@@ -189,12 +193,12 @@ export class ModerationModuleManager extends MutexBasedManager {
         )
     }
 
-    getEmbedForModerationAction(action: ModerationAction) : NonNullable<MessageOptions['embeds']>[0] {
+    getEmbedForModerationAction(action: ModerationAction): NonNullable<MessageOptions['embeds']>[0] {
         return {
             title: 'Moderation Action',
             description: stripIndent`
-            Queue Time: <t:${(action.queueTime.getTime()/1000).toFixed(0)}>
-            Exec Time: <t:${(action.executionTime.getTime()/1000).toFixed(0)}>
+            Queue Time: <t:${(action.queueTime.getTime() / 1000).toFixed(0)}>
+            Exec Time: <t:${(action.executionTime.getTime() / 1000).toFixed(0)}>
             Reason: ${action.reason}
             Moderator: <@${action.moderator}>
             Target: <@${action.target}>
@@ -221,7 +225,7 @@ export class ModerationModuleManager extends MutexBasedManager {
 
     async queueModerationAction(name: string, action: ModerationAction) {
         await this.getMutex(this.DEFAULT_MUTEX_ID).runExclusive(async () => {
-            discordBot.databaseManager.moderationQueueCollection.addDocument(
+            await discordBot.databaseManager.moderationQueueCollection.addDocument(
                 name, action
             )
         })
@@ -244,7 +248,7 @@ export class ModerationModuleManager extends MutexBasedManager {
             if (!match) continue
 
             await message.delete()
-            
+
             await this.logModerationAction({
                 executionTime: date,
                 queueTime: date,

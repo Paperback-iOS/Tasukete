@@ -26,9 +26,9 @@ export class DocumentCollection<T extends object> {
         fs.mkdirSync(folderPath)
     }
 
-    addDocument(name: string, document: T): Document<T> {
+    async addDocument(name: string, document: T): Promise<Document<T>> {
         const newDocument = this.getDocument(name, document)
-        newDocument.forceSync(document)
+        await newDocument.forceSync(document)
         return newDocument
     }
 
