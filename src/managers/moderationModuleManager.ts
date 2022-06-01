@@ -22,8 +22,12 @@ export class ModerationModuleManager extends MutexBasedManager {
     async processTasks() {
         await this.getMutex(this.DEFAULT_MUTEX_ID).runExclusive(async () => {
             const actionQueue = this.getAllQueuedModerationActions()
-            for (const [, document] of Object.entries(actionQueue)) {
-                await this.handleModerationAction(document.readOnlyValue())
+            for (const document of Object.values(actionQueue)) {
+                const action = document.readOnlyValue()
+                
+                if (Date.now() < action.executionTime.getTime()) continue
+        
+                await this.handleModerationAction(action)
                 await document.deleteDocument()
             }
         })
@@ -139,12 +143,13 @@ export class ModerationModuleManager extends MutexBasedManager {
         await member.roles.add(this.moduleConfig.muteConfig.muteRole)
 
         const muteTime = new Date()
+        const expiry = new Date(muteTime.getTime() + duration)
 
         await this.logModerationAction({
             executionTime: muteTime,
             queueTime: muteTime,
             moderator: moderator.id,
-            reason: reason,
+            reason: `${reason} **DURATION:** ${duration}ms **EXPIRES:** <t:${(expiry.getTime()/1000).toFixed(0)}:R>`,
             subactions: [{
                 metadata: this.moduleConfig.muteConfig.muteRole,
                 type: ModerationActionType.ROLE_ADD
@@ -153,7 +158,7 @@ export class ModerationModuleManager extends MutexBasedManager {
         })
 
         await this.queueModerationAction(`${member.id}_UNMUTE`, {
-            executionTime: new Date(muteTime.getTime() + duration),
+            executionTime: expiry,
             queueTime: muteTime,
             moderator: moderator.id,
             reason: reason,
@@ -166,8 +171,6 @@ export class ModerationModuleManager extends MutexBasedManager {
     }
 
     async handleModerationAction(action: ModerationAction) {
-        if (Date.now() < action.executionTime.getTime()) return
-
         const guild = await discordBot.guild
         const target = await guild.members.fetch(action.target)
 
