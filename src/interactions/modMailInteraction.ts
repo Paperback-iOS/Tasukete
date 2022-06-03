@@ -72,7 +72,7 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                 await thread.members.add(interaction.user.id)
                 
                 await loggingChannel.send({
-                    content: `You've got Mail, @here! **${interaction.user.username}#${interaction.user.discriminator}** - ${interaction.user.id} opened a thread`,
+                    content: `Help required! **${interaction.user.username}#${interaction.user.discriminator}** - ${interaction.user.id} opened a thread`,
                     components: [
                         new MessageActionRow()
                             .addComponents(
