@@ -17,7 +17,7 @@ export class ModMailManager {
         if (!member || (this.moduleConfig?.ignoreRole && member.roles.cache.has(this.moduleConfig.ignoreRole))) return
 
         await message.reply({
-            content: 'Would you like to forward this message to the server admins? Note: If you need support, make a thread first.',
+            content: 'Would you like to forward this message to the server admins? Note: If you need support, make a thread first in <#673620355486842920>.',
             components: [
                 new MessageActionRow()
                     .addComponents(
