@@ -225,15 +225,15 @@ export function parseHumanDate(str: string) {
 
 function parseDateComponent(str: string) {
     switch (str.toLowerCase()) {
-    case 'y': case 'year': case 'years': case 'yr': case 'yrs':
+    case 'y': case 'yr': case 'yrs': case 'year': case 'years':
         return 3.156e+10
-    case 'min': case 'mins': case 'minute': case 'minutes':
+    case 'm': case 'min': case 'mins': case 'minute': case 'minutes':
         return 6e+4
     case 'd': case 'day': case 'days':
         return 8.64e+7
     case 'h': case 'hr': case 'hrs': case 'hour': case 'hours':
         return 3.6e+6
-    case 'month': case 'months':
+    case 'mth': case 'mths': case 'month': case 'months':
         return 2.628e+9
     default:
         return undefined
