@@ -47,12 +47,19 @@ export default class RoleCommand implements Command {
         const member = interaction.options.getMentionable('user', true) as GuildMember
         const role = interaction.options.getRole('role', true)
         const rawDuration = interaction.options.getString('duration')
+        const duration = rawDuration ? parseHumanDate(rawDuration) : 0
+
         const reason = interaction.options.getString('reason', true)
         const removeRole = member.roles.cache.has(role.id) && !rawDuration
 
         const highestRole = (interaction.member?.roles as GuildMemberRoleManager).highest
         if (!highestRole || highestRole.position < role.position) {
             await interaction.editReply('Role position is higher than the highest role you have')
+            return
+        }
+
+        if (rawDuration && duration == 0) {
+            await interaction.editReply('Invalid duration. **Format:** <number> min/hr/day/mth/yr')
             return
         }
 
@@ -70,9 +77,7 @@ export default class RoleCommand implements Command {
             reason: `${reason} ${rawDuration ? `**DURATION:** ${rawDuration}` : ''}`
         })
 
-        if (rawDuration) {
-            const duration = parseHumanDate(rawDuration)
-            if (duration == 0) return
+        if (duration > 0) {
             const end = new Date(Date.now() + duration)
             const endInSeconds = (end.getTime()/1000).toFixed(0)
 
