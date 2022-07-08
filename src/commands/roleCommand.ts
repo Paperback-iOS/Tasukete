@@ -24,14 +24,14 @@ export default class RoleCommand implements Command {
                 .setRequired(true)
             )
             .addStringOption(builder => builder
-                .setName('duration')
-                .setDescription('Accepted format: <number> min(s)/hr(s)/day(s)/month(s)/year(s)')
-                .setRequired(false)
-            )
-            .addStringOption(builder => builder
                 .setName('reason')
                 .setDescription('reason to give out this role')
                 .setRequired(true)
+            )
+            .addStringOption(builder => builder
+                .setName('duration')
+                .setDescription('Accepted format: <number> min(s)/hr(s)/day(s)/month(s)/year(s)')
+                .setRequired(false)
             )
             .toJSON()
     }
