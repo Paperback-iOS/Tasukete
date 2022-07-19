@@ -1,4 +1,4 @@
-import { ButtonInteraction, MessageActionRow, MessageButton, ThreadChannel } from 'discord.js'
+import { ButtonInteraction, Message, MessageActionRow, MessageButton, MessageManager, ThreadChannel } from 'discord.js'
 import { discordBot } from '..'
 import { Constants } from '../constants'
 import { ModMailModule } from '../models/LiveConfig'
@@ -100,7 +100,9 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
         } else if (option.startsWith('closeThread')) {
             await interaction.deferReply({ephemeral: true})
 
-            const threadId = option.split('&')[1]
+            const query = option.split('&')
+            const threadId = query[1]
+            const messageId = interaction.message.id
             interaction.editReply({
                 content: `Are you sure you want to close the thread <@${threadId.split('/')[1]}>?`,
                 components: [
@@ -112,7 +114,7 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                                 .setCustomId('modMailInteraction#cancel'),
                             new MessageButton()
                                 .setLabel('Yes')
-                                .setCustomId(`modMailInteraction#confirmCloseThread&${threadId}`)
+                                .setCustomId(`modMailInteraction#confirmCloseThread&${threadId}&${messageId}`)
                                 .setStyle('DANGER')
                         )
                 ]
@@ -120,8 +122,11 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
         } else if (option.startsWith('confirmCloseThread')) {
             await interaction.update({ components: [] })
 
-            const [threadChannelId, threadId] = option.split('&')[1].split('/')
-            const guild = discordBot.client.guilds.cache.get(Constants.DISCORD_GUILD_ID)
+            const [threadInfo, messageId] = option.split('&').slice(1)
+            const [threadChannelId, threadId] = threadInfo.split('/')
+
+            const guild = await discordBot.guild
+
             const threadChannel = await guild?.channels.fetch(threadChannelId)
             if (!threadChannel?.isText()) {
                 await interaction.editReply('thread parent channel is not a text based')
@@ -146,7 +151,30 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                 await thread.setLocked(true)
                 await thread.setArchived(true)
 
-                await interaction.channel?.send(`Thread <#${thread.id}> closed by <@${interaction.user.id}>`)
+                try {
+                    const ogMessage = await interaction.channel?.messages.fetch(messageId, {force: true})
+                    if (ogMessage) {
+                        await ogMessage.edit({
+                            content: `~~You've got Mail, @here! **${interaction.user.username}#${interaction.user.discriminator}** - ${interaction.user.id} opened a thread~~\nClosed by <@${interaction.user.id}>`,
+                            components: [
+                                new MessageActionRow()
+                                    .addComponents(
+                                        new MessageButton()
+                                            .setLabel('Show Thread')
+                                            .setStyle('LINK')
+                                            .setURL(`https://discord.com/channels/${Constants.DISCORD_GUILD_ID}/${thread.id}`)
+                                    )
+                            ]
+                        })
+
+                        await ogMessage.react('🔒')
+                    } else {
+                        throw new Error('Unable to fetch original message')
+                    }
+                } catch(error: any) {
+                    await interaction.followUp({ephemeral: true, content: error.message})
+                    await interaction.channel?.send(`Thread <#${thread.id}> closed by <@${interaction.user.id}>`)
+                }
             } else {
                 await interaction.editReply('Thread already closed')
             }
