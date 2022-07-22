@@ -155,7 +155,7 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                     const ogMessage = await interaction.channel?.messages.fetch(messageId, {force: true})
                     if (ogMessage) {
                         await ogMessage.edit({
-                            content: `~~You've got Mail, @here! **${interaction.user.username}#${interaction.user.discriminator}** - ${interaction.user.id} opened a thread~~\nClosed by <@${interaction.user.id}>`,
+                            content: `~~${ogMessage.content}~~\n\nClosed by <@${interaction.user.id}>`,
                             components: [
                                 new MessageActionRow()
                                     .addComponents(
@@ -166,8 +166,6 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                                     )
                             ]
                         })
-
-                        await ogMessage.react('🔒')
                     } else {
                         throw new Error('Unable to fetch original message')
                     }
