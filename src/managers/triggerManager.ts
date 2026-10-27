@@ -31,6 +31,10 @@ export class LiveTriggerManager {
         if(dir.length == 0) {
             this.loadedTriggers.clear()
         }
+
+        if (!fs.existsSync(path.join(LiveTriggerManager.liveTriggersDir, dir))){
+            return
+        }
         
         for(const file of fs.readdirSync(path.join(LiveTriggerManager.liveTriggersDir, dir))) {
             const filePath = path.join(LiveTriggerManager.liveTriggersDir, dir, file)
