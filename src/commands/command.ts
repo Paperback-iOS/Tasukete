@@ -1,7 +1,6 @@
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9'
-import { AutocompleteInteraction, CommandInteraction } from 'discord.js'
+import { AutocompleteInteraction, ChatInputCommandInteraction, RESTPostAPIApplicationCommandsJSONBody } from 'discord.js'
 import { discordBot } from '..'
-import { LiveConfig, Modules } from '../models/LiveConfig'
+import { Modules } from '../models/LiveConfig'
 
 export interface IExportedCommand {
     getCommandMetadata(): RESTPostAPIApplicationCommandsJSONBody
@@ -9,7 +8,7 @@ export interface IExportedCommand {
 }
 
 export interface IExecutableCommand {
-    execute(interaction: CommandInteraction): Promise<void>
+    execute(interaction: ChatInputCommandInteraction): Promise<void>
 }
 
 export interface IAutocompletableCommand {

@@ -1,4 +1,4 @@
-import { Emoji, Guild, GuildEmoji, GuildMember, MessageOptions } from 'discord.js'
+import { GuildEmoji, GuildMember } from 'discord.js'
 import { discordBot } from '..'
 import { VanityRolesModule } from '../models/LiveConfig'
 import {stripIndent} from 'common-tags'
@@ -17,8 +17,7 @@ export class VanityRolesManager extends MutexBasedManager {
     }
 
     async getVanityRoleForMember(member: GuildMember) {
-        const userData = discordBot.databaseManager.getUserDocument(member.id)
-        const memberVanityRoleId = await userData.get('vanityRoleId')
+        const memberVanityRoleId = discordBot.databaseManager.getVanityRoleId(member.id)
         if (!memberVanityRoleId) return undefined
             
         const guild = await discordBot.guild
@@ -26,7 +25,6 @@ export class VanityRolesManager extends MutexBasedManager {
     }
 
     async updateOrCreateRole(vanityRole: VanityRole, member: GuildMember) {
-        const userData = discordBot.databaseManager.getUserDocument(member.id)
         const guild = await discordBot.guild
         
         const existingRole = await this.getVanityRoleForMember(member)
@@ -84,7 +82,7 @@ export class VanityRolesManager extends MutexBasedManager {
                 hoist: false,
             })
 
-            userData.set('vanityRoleId', role.id)
+            discordBot.databaseManager.setVanityRoleId(member.id, role.id)
 
             if (!this.moduleConfig?.loggingChannel) return role
             
@@ -113,10 +111,9 @@ export class VanityRolesManager extends MutexBasedManager {
 
     async memberUpdated(member: GuildMember) {
         await this.getMutex(member.id).runExclusive(async () => {
-            const userData = discordBot.databaseManager.getUserDocument(member.id)
             console.log('member updated')
 
-            const memberVanityRoleId = await userData.get('vanityRoleId')
+            const memberVanityRoleId = discordBot.databaseManager.getVanityRoleId(member.id)
             if (!memberVanityRoleId) return
 
             const guild = await discordBot.guild
@@ -126,7 +123,7 @@ export class VanityRolesManager extends MutexBasedManager {
             if (hasPermission(this.moduleConfig?.permissions, member)) return
 
             await role.delete()
-            await userData.set('vanityRoleId', undefined)
+            discordBot.databaseManager.setVanityRoleId(member.id, undefined)
 
             if (!this.moduleConfig?.loggingChannel) return
             

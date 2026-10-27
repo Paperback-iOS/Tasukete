@@ -1,12 +1,6 @@
-import { SlashCommandBuilder, SlashCommandStringOption } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, Guild, GuildMember, Message, MessageActionRow, MessageAttachment, MessageButton, MessageEmbed } from 'discord.js'
-import fs from 'fs'
-import path from 'path'
+import { AttachmentBuilder, ChatInputCommandInteraction, GuildMember, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { discordBot } from '..'
-import { Constants } from '../constants'
 import { LiveTriggerManager } from '../managers/triggerManager'
-import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { hasPermission } from '../utils'
 import { Command } from './command'
 
@@ -18,9 +12,9 @@ export default class DumpTriggersCommand implements Command {
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
-        if (!hasPermission(undefined, interaction.member as GuildMember, 'MANAGE_GUILD')) {
-            await interaction.reply({ content: 'You are not allowed to use this command', ephemeral: true })
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!hasPermission(undefined, interaction.member as GuildMember, PermissionFlagsBits.ManageGuild)) {
+            await interaction.reply({ content: 'You are not allowed to use this command', flags: MessageFlags.Ephemeral })
             return
         }
         
@@ -32,9 +26,9 @@ export default class DumpTriggersCommand implements Command {
         await interaction.editReply({
             content: 'All loaded triggers',
             files: [
-                new MessageAttachment(
+                new AttachmentBuilder(
                     Buffer.from(triggerFile),
-                    'alltriggers.yaml'
+                    { name: 'alltriggers.yaml' }
                 ),
             ]
         })

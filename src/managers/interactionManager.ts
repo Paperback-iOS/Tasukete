@@ -9,7 +9,7 @@ export class LocalInteractionManager {
         const interactionPath = path.join(LocalInteractionManager.interactionsDir, interactionId.split('#')[0] + '.js')
         if (!fs.existsSync(interactionPath)) return undefined
 
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         return require(interactionPath)?.['default']
     }
 }

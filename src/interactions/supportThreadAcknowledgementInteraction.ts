@@ -1,15 +1,16 @@
-import { ButtonInteraction, CacheType, Interaction, MessageActionRow, MessageButton, TextChannel } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChannelType, MessageFlags, TextChannel } from 'discord.js'
+import { resolveButtonStyle } from '../models/liveCompat'
 import { discordBot } from '..'
 import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { MultiButtonOptionInteraction } from './interaction'
 
 export default class SupportThreadConfirmationInteraction extends MultiButtonOptionInteraction {
     async executeDefaultOption(interaction: ButtonInteraction<CacheType>): Promise<void> {
-        await interaction.reply({content:'Invalid option', ephemeral:true})
+        await interaction.reply({content:'Invalid option', flags: MessageFlags.Ephemeral})
     }
 
     async executeWithOption(option: string, interaction: ButtonInteraction<CacheType>): Promise<void> {
-        await interaction.deferReply({ ephemeral: true })
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral })
         if (option.startsWith('display')) {
             const configName = option.split('&')[1]
             if (!configName) {
@@ -38,22 +39,22 @@ export default class SupportThreadConfirmationInteraction extends MultiButtonOpt
             await new MessageLiveInteraction(liveInteraction)
                 .replyToInteraction(interaction, {
                     components: [
-                        new MessageActionRow()
+                        new ActionRowBuilder<ButtonBuilder>()
                             .addComponents(
-                                new MessageButton()
+                                new ButtonBuilder()
                                     .setLabel('Continue')
-                                    .setStyle('DANGER')
+                                    .setStyle(ButtonStyle.Danger)
                                     .setCustomId('supportThreadAcknowledgementInteraction#accept&'+configName),
-                                new MessageButton()
+                                new ButtonBuilder()
                                     .setLabel('Cancel')
-                                    .setStyle('PRIMARY')
+                                    .setStyle(ButtonStyle.Primary)
                                     .setCustomId('supportThreadAcknowledgementInteraction#deny'),
                         
                                 ...(() => config.troubleshootButton != undefined ? [
-                                    new MessageButton()
+                                    new ButtonBuilder()
                                         .setCustomId('liveInteraction#' + config.troubleshootInteractionPath)
                                         .setLabel(config.troubleshootButton?.title ?? 'Troubleshoot')
-                                        .setStyle(config.troubleshootButton?.type ?? 'SUCCESS'),
+                                        .setStyle(resolveButtonStyle(config.troubleshootButton?.type, ButtonStyle.Success)),
                                 ] : [])()
                             )
                     ]
@@ -73,35 +74,35 @@ export default class SupportThreadConfirmationInteraction extends MultiButtonOpt
 
             const supportChannelId = config.supportThreadChannel
             if (!supportChannelId) {
-                await interaction.followUp({ content: 'supportChannelId not set.', ephemeral: false })
+                await interaction.followUp({ content: 'supportChannelId not set.' })
                 return
             }
             
             const supportChannel = discordBot.client.channels.cache.get(supportChannelId)
             if (!supportChannel) {
-                await interaction.followUp({ content: 'Could not fetch support channel details.', ephemeral: false })
+                await interaction.followUp({ content: 'Could not fetch support channel details.' })
                 return
             }
 
-            if (!supportChannel.isText()) {
-                await interaction.followUp({ content: 'Support channel is not a text channel.', ephemeral: false })
+            if (!supportChannel.isTextBased()) {
+                await interaction.followUp({ content: 'Support channel is not a text channel.' })
                 return
             }
 
             if (!(supportChannel as TextChannel).threads) {
-                await interaction.followUp({ content: 'Support channel does not allow threads.', ephemeral: false })
+                await interaction.followUp({ content: 'Support channel does not allow threads.' })
                 return
             }
 
             const liveInteractionId = config.supportThreadDisplayInteractionPath
             if (!liveInteractionId) {
-                await interaction.followUp({ content: 'supportThreadDisplayInteractionPath not set', ephemeral: false })
+                await interaction.followUp({ content: 'supportThreadDisplayInteractionPath not set' })
                 return
             }
 
             const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction(liveInteractionId)
             if (!liveInteraction) {
-                await interaction.followUp({ content: 'Unable to find \''+liveInteractionId+'\' live interaction, please make sure its loaded', ephemeral: false })
+                await interaction.followUp({ content: 'Unable to find \''+liveInteractionId+'\' live interaction, please make sure its loaded' })
                 return
             }
 
@@ -109,7 +110,7 @@ export default class SupportThreadConfirmationInteraction extends MultiButtonOpt
                 const thread = await (supportChannel as TextChannel).threads.create({
                     name: `Support Thread - ${interaction.user.id}`,
                     autoArchiveDuration: 60,
-                    type: 'GUILD_PUBLIC_THREAD',
+                    type: ChannelType.PublicThread,
                     invitable: true
                 })
 
@@ -123,7 +124,7 @@ export default class SupportThreadConfirmationInteraction extends MultiButtonOpt
         } else if (option.startsWith('deny')) {
             return
         } else {
-            await interaction.followUp({ content: 'Invalid option selected', ephemeral: true })
+            await interaction.followUp({ content: 'Invalid option selected', flags: MessageFlags.Ephemeral })
             return
         }
     }

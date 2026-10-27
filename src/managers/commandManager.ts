@@ -1,6 +1,4 @@
-import { REST } from '@discordjs/rest'
-import { RESTPatchAPIApplicationCommandJSONBody, RESTPostAPIApplicationCommandsJSONBody, Routes } from 'discord-api-types/v9'
-import { Constants } from '../constants'
+import { RESTPostAPIApplicationCommandsJSONBody } from 'discord.js'
 import path from 'path'
 import fsp from 'fs/promises'
 import { Command, IAutocompletableCommand, IExecutableCommand } from '../commands/command'
@@ -18,7 +16,7 @@ export class LocalCommandManager {
 
             const commandPath = path.join(commandsDir, file)
 
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             const CommandClass: (new () => Command | undefined) | undefined = require(commandPath)?.['default']
             if(!CommandClass) return []
 
@@ -41,7 +39,7 @@ export class LocalCommandManager {
         const commandPath = this.loadedCommands[name]
         if (!commandPath) return undefined
 
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         return require(commandPath)?.['default']
     }
 }

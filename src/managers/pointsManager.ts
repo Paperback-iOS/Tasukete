@@ -1,8 +1,7 @@
-import { GuildMember, User } from 'discord.js'
+import { User } from 'discord.js'
 import { discordBot } from '..'
-import { IModuleConfig } from '../commands/command'
 import { PointsModule } from '../models/LiveConfig'
-import { UserData } from './databaseManager'
+import { UserPoints } from './databaseManager'
 import { MutexBasedManager } from './mutexBasedManager'
 
 export class PointsManager extends MutexBasedManager {
@@ -10,37 +9,16 @@ export class PointsManager extends MutexBasedManager {
         return discordBot.liveConfig.modules?.pointsSystem
     }
 
-    async getAllPoints(): Promise<Record<string, UserData['points']>> {
-        const allUserDocuments = discordBot.databaseManager.getAllUserDocuments(0, Infinity)
-
-        return Object.fromEntries(
-            (await Promise.all(
-                <Promise<[string, UserData['points']]>[]> Object.entries(allUserDocuments).map(async ([key, value]) => {
-                    const points = await value.get('points')
-                    if (points == undefined) return undefined
-                    
-                    return [key, points]
-                })
-            )).filter(x => x)
-        )
+    getPointsPage(page: number, limit: number) {
+        return {
+            entries: discordBot.databaseManager.getPointsPage((page - 1) * limit, limit),
+            total: discordBot.databaseManager.countUsersWithPoints()
+        }
     }
 
     async addPointsToUser(user: User, amount: number, reason: string, assigner: User) {
         await this.getMutex(user.id).runExclusive(async () => {
-            const userData = discordBot.databaseManager.getUserDocument(user.id)
-
-            await userData.modifyValue(async (data) => {
-                if (!data.points) data.points = { amount: 0, history: [] }
-
-                const { points } = data
-                
-                points.amount += amount
-                points.history.push({
-                    amount,
-                    reason,
-                    assigner: assigner.id
-                })
-            })
+            discordBot.databaseManager.addPoints(user.id, amount, reason, assigner.id)
 
             if (!this.moduleConfig?.loggingChannel) return
             
@@ -51,14 +29,13 @@ export class PointsManager extends MutexBasedManager {
         })
     }
 
-    async getPointsForUser(user: User): Promise<UserData['points']> {
-        const userData = discordBot.databaseManager.getUserDocument(user.id)
-        return await userData.get('points')
+    getPointsForUser(user: User): UserPoints | undefined {
+        return discordBot.databaseManager.getPoints(user.id)
     }
 
     async removeAllPointsForUser(user: User, assigner: User) {
         await this.getMutex(user.id).runExclusive(async () => {
-            await discordBot.databaseManager.getUserDocument(user.id).set('points', undefined)
+            discordBot.databaseManager.clearPoints(user.id)
             if (!this.moduleConfig?.loggingChannel) return
 
             await discordBot.sendToChannel(this.moduleConfig?.loggingChannel, {

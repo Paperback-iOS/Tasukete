@@ -1,27 +1,7 @@
-import { SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandStringOption, SlashCommandSubcommandBuilder } from '@discordjs/builders'
-import { APIApplicationCommandOption, APIApplicationCommandOptionChoice, ApplicationCommandOptionType, ChannelType, RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9'
-
-import { AutocompleteInteraction, CacheType, CommandInteraction, MessagePayload, ApplicationCommandOptionChoice } from 'discord.js'
+import { AutocompleteInteraction, CacheType, ChatInputCommandInteraction, MessageFlags, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBooleanOption, SlashCommandBuilder, SlashCommandStringOption } from 'discord.js'
 import { discordBot } from '..'
 import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { Command, IAutocompletableCommand } from './command'
-
-export class SlashCommandAutocompleteStringOption extends SlashCommandStringOption {
-    override toJSON(): {
-        autocomplete: boolean; choices: APIApplicationCommandOptionChoice[] | undefined; type: ApplicationCommandOptionType.String | ApplicationCommandOptionType.Integer | ApplicationCommandOptionType.Number; name: string; description: string; default?: boolean | undefined; required?: boolean | undefined;
-    } | {
-        autocomplete: boolean; choices: APIApplicationCommandOptionChoice[] | undefined; type: ApplicationCommandOptionType.Subcommand | ApplicationCommandOptionType.SubcommandGroup; options?: APIApplicationCommandOption[] | undefined; name: string; description: string; default?: boolean | undefined; required?: boolean | undefined;
-    } | {
-        autocomplete: boolean; choices: APIApplicationCommandOptionChoice[] | undefined; type: ApplicationCommandOptionType.Channel; channel_types?: (ChannelType.GuildText | ChannelType.GuildVoice | ChannelType.GuildCategory | ChannelType.GuildNews | ChannelType.GuildStore | ChannelType.GuildNewsThread | ChannelType.GuildPublicThread | ChannelType.GuildPrivateThread | ChannelType.GuildStageVoice)[] | undefined; name: string; description: string; default?: boolean | undefined; required?: boolean | undefined;
-    } | {
-        autocomplete: boolean; choices: APIApplicationCommandOptionChoice[] | undefined; type: ApplicationCommandOptionType.Boolean | ApplicationCommandOptionType.User | ApplicationCommandOptionType.Role | ApplicationCommandOptionType.Mentionable; name: string; description: string; default?: boolean | undefined; required?: boolean | undefined;
-        } {
-        return {
-            ...super.toJSON(),
-            autocomplete: true
-        }
-    }
-}
 
 export default class LiveInteractionCommand implements Command, IAutocompletableCommand {
     getCommandMetadata(): RESTPostAPIApplicationCommandsJSONBody {
@@ -30,10 +10,11 @@ export default class LiveInteractionCommand implements Command, IAutocompletable
                 .setName('liveinteraction')
                 .setDescription('Try to display a loaded interaction')
                 .addStringOption(
-                    new SlashCommandAutocompleteStringOption()
+                    new SlashCommandStringOption()
                         .setName('interaction')
                         .setDescription('path to the interaction')
                         .setRequired(true)
+                        .setAutocomplete(true)
                 )
                 .addBooleanOption(
                     new SlashCommandBooleanOption()
@@ -45,9 +26,9 @@ export default class LiveInteractionCommand implements Command, IAutocompletable
         }
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         await interaction.deferReply({
-            ephemeral: interaction.options.getBoolean('ephemeral') ?? true
+            flags: (interaction.options.getBoolean('ephemeral') ?? true) ? MessageFlags.Ephemeral : undefined
         })
 
         const liveInteractionId = interaction.options.getString('interaction')

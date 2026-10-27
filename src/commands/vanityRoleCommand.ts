@@ -1,10 +1,7 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, Emoji, Guild, GuildEmoji, GuildMember, MessageActionRow, MessageButton } from 'discord.js'
+import { ChatInputCommandInteraction, GuildEmoji, GuildMember, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { discordBot } from '..'
 import { VanityRole } from '../managers/vanityRolesManager'
-import { RoleKit, RoleKitsModule, VanityRolesModule } from '../models/LiveConfig'
-import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
+import { VanityRolesModule } from '../models/LiveConfig'
 import { hasPermission } from '../utils'
 import { Command } from './command'
 
@@ -35,16 +32,16 @@ export default class VanityRoleCommand implements Command {
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
-        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, 'MANAGE_ROLES')) {
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, PermissionFlagsBits.ManageRoles)) {
             await interaction.reply({ 
                 content: 'You are not authorized to use this command',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             })
             return
         }
 
-        await interaction.deferReply({ ephemeral: true })
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral })
         
         let color = NaN
         const colorString = interaction.options.getString('color', false)?.match(/([a-f0-9]){6}$/gi)
@@ -68,7 +65,7 @@ export default class VanityRoleCommand implements Command {
         
         await (interaction.member as GuildMember)?.roles.add(role)
 
-        await interaction.followUp({content: 'Successfully updated role list', ephemeral: true})
+        await interaction.followUp({content: 'Successfully updated role list', flags: MessageFlags.Ephemeral})
     }
 
 }

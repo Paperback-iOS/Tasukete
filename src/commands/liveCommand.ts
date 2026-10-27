@@ -1,6 +1,4 @@
-import { SlashCommandBuilder, SlashCommandStringOption } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9'
-import { CommandInteraction, GuildMember } from 'discord.js'
+import { ChatInputCommandInteraction, GuildMember, MessageFlags, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder, SlashCommandStringOption } from 'discord.js'
 import { discordBot } from '..'
 import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { constantsFromObject, hasPermission, cleanString } from '../utils'
@@ -20,7 +18,7 @@ export default class LiveCommand implements Command {
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         let liveCommandName: string | null = interaction.commandName
         const constants = constantsFromObject(interaction)
 
@@ -54,7 +52,7 @@ export default class LiveCommand implements Command {
             throw new Error('You are not authorised to use this command')
         }
 
-        await interaction.deferReply({ ephemeral: liveCommand?.ephemeral })
+        await interaction.deferReply({ flags: liveCommand?.ephemeral ? MessageFlags.Ephemeral : undefined })
         
         const liveInteraction = discordBot.liveInteractionManager.resolveLiveInteraction(
             liveCommand.interaction,

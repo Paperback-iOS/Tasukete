@@ -1,6 +1,5 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody, ChannelType } from 'discord-api-types/v9'
-import { CommandInteraction, Guild, GuildMember, MessageActionRow, MessageButton } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChatInputCommandInteraction, GuildMember, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
+import { resolveButtonStyle } from '../models/liveCompat'
 
 import { discordBot } from '..'
 import { SupportThreadConfigs, SupportThreadsModule } from '../models/LiveConfig'
@@ -26,17 +25,17 @@ export default class SupportCommand implements Command {
                 .setDescription('Config name for support threads.')
                 .setRequired(true)
                 .addChoices(
-                    Object.keys(this.threadConfigs)
-                        .map(key => [key, key])
+                    ...Object.keys(this.threadConfigs)
+                        .map(key => ({ name: key, value: key }))
                 )
             )
-            .setDefaultPermission(this.moduleConfig?.enabled ?? false)
+            .setDefaultMemberPermissions((this.moduleConfig?.enabled ?? false) ? null : 0)
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
-        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, 'MANAGE_THREADS')) {
-            await interaction.reply({ content: 'You dont have permission to use this command', ephemeral: true })
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, PermissionFlagsBits.ManageThreads)) {
+            await interaction.reply({ content: 'You dont have permission to use this command', flags: MessageFlags.Ephemeral })
             return
         }
         
@@ -69,18 +68,18 @@ export default class SupportCommand implements Command {
         const message = new MessageLiveInteraction(liveInteraction)
         await message.replyToInteraction(interaction, {
             components: [
-                new MessageActionRow()
+                new ActionRowBuilder<ButtonBuilder>()
                     .addComponents(
-                        new MessageButton()
+                        new ButtonBuilder()
                             .setCustomId('supportThreadAcknowledgementInteraction#display&' + configName)
                             .setLabel(config.supportThreadButton?.title ?? 'Open Thread')
-                            .setStyle(config.supportThreadButton?.type ?? 'PRIMARY'),
+                            .setStyle(resolveButtonStyle(config.supportThreadButton?.type, ButtonStyle.Primary)),
                         
                         ...(() => config.troubleshootButton != undefined ? [
-                            new MessageButton()
+                            new ButtonBuilder()
                                 .setCustomId('liveInteraction#' + config.troubleshootInteractionPath)
                                 .setLabel(config.troubleshootButton?.title ?? 'Troubleshoot')
-                                .setStyle(config.troubleshootButton?.type ?? 'SUCCESS'),
+                                .setStyle(resolveButtonStyle(config.troubleshootButton?.type, ButtonStyle.Success)),
                         ] : [])()
                     ),
             ]

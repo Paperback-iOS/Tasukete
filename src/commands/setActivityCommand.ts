@@ -1,7 +1,5 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { Activity, CommandInteraction, ExcludeEnum } from 'discord.js'
-import { ActivityTypes } from 'discord.js/typings/enums'
+import { ActivityType, ChatInputCommandInteraction, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
+import { BotActivity } from '../managers/databaseManager'
 import { discordBot } from '..'
 import { Command } from './command'
 
@@ -17,13 +15,13 @@ export default class SetActivityCommand implements Command {
                     .setRequired(true)
                     .setName('type')
                     .setDescription('the type of activity')
-                    .addChoices([
-                        ['PLAYING', 0],
-                        ['STREAMING', 1],
-                        ['LISTENING', 2],
-                        ['WATCHING', 3],
-                        ['COMPETING', 5]
-                    ])
+                    .addChoices(
+                        { name: 'PLAYING', value: ActivityType.Playing },
+                        { name: 'STREAMING', value: ActivityType.Streaming },
+                        { name: 'LISTENING', value: ActivityType.Listening },
+                        { name: 'WATCHING', value: ActivityType.Watching },
+                        { name: 'COMPETING', value: ActivityType.Competing }
+                    )
                 )
                 .addStringOption(builder => builder
                     .setName('activity')
@@ -37,20 +35,20 @@ export default class SetActivityCommand implements Command {
             )
             .toJSON()
     }
-    async execute(interaction: CommandInteraction): Promise<void> {
-        if (!interaction.memberPermissions?.has('MANAGE_GUILD')) {
-            await interaction.reply({content: 'Unauthorized to use this command', ephemeral: true})
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+            await interaction.reply({content: 'Unauthorized to use this command', flags: MessageFlags.Ephemeral})
             return
         }
         
-        await interaction.deferReply({ ephemeral: true })
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral })
         
         const subcommand = interaction.options.getSubcommand()
 
         if (subcommand == 'set') {
-            await discordBot.setActivity(
+            discordBot.setActivity(
                 interaction.options.getString('activity', true),
-                interaction.options.getNumber('type', true) as ExcludeEnum<typeof ActivityTypes, 'CUSTOM'>
+                interaction.options.getNumber('type', true) as BotActivity['type']
             )
     
             await interaction.editReply('Successfully set bot activity!')
@@ -58,7 +56,7 @@ export default class SetActivityCommand implements Command {
         }
 
         if (subcommand == 'remove') {
-            await discordBot.removeActivity()
+            discordBot.removeActivity()
             await interaction.editReply('Successfully removed bot activity!')
             return
         }

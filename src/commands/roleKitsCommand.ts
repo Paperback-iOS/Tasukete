@@ -1,9 +1,6 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, Guild, GuildMember, MessageActionRow, MessageButton } from 'discord.js'
+import { ChatInputCommandInteraction, GuildMember, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { discordBot } from '..'
 import { RoleKit, RoleKitsModule } from '../models/LiveConfig'
-import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { hasPermission, cleanString } from '../utils'
 import { Command } from './command'
 
@@ -30,11 +27,11 @@ export default class RoleKitsCommand implements Command {
                 .setDescription('The kit to give')
                 .setRequired(true)
                 .addChoices(
-                    Object.keys(this.roleKits)
-                        .map(key => [this.roleKits[key].name ?? key, key])
+                    ...Object.keys(this.roleKits)
+                        .map(key => ({ name: this.roleKits[key].name ?? key, value: key }))
                 )
             )
-            .setDefaultPermission(this.moduleConfig?.enabled ?? false)
+            .setDefaultMemberPermissions((this.moduleConfig?.enabled ?? false) ? null : 0)
             .toJSON()
     }
 
@@ -55,9 +52,9 @@ export default class RoleKitsCommand implements Command {
         }).filter(x => x)
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {        
-        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, 'MANAGE_ROLES')) {
-            await interaction.reply({ content: 'You dont have permission to use this command', ephemeral: true })
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {        
+        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, PermissionFlagsBits.ManageRoles)) {
+            await interaction.reply({ content: 'You dont have permission to use this command', flags: MessageFlags.Ephemeral })
             return
         }
         

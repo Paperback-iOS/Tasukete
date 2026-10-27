@@ -1,14 +1,9 @@
-import { SlashCommandBuilder, SlashCommandStringOption } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { AutocompleteInteraction, CacheType, CommandInteraction, Guild, GuildMember, Message, MessageActionRow, MessageAttachment, MessageButton, MessageEmbed } from 'discord.js'
+import { AttachmentBuilder, AutocompleteInteraction, CacheType, ChatInputCommandInteraction, GuildMember, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder, SlashCommandStringOption } from 'discord.js'
 import fs from 'fs'
 import path from 'path'
-import { discordBot } from '..'
 import { Constants } from '../constants'
-import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { hasPermission } from '../utils'
 import { Command, IAutocompletableCommand } from './command'
-import { SlashCommandAutocompleteStringOption } from './liveInteractionCommand'
 
 export default class DumpCommand implements Command, IAutocompletableCommand {
     getCommandMetadata(): RESTPostAPIApplicationCommandsJSONBody {
@@ -16,17 +11,18 @@ export default class DumpCommand implements Command, IAutocompletableCommand {
             .setName('dump')
             .setDescription('dump the contents of the file')
             .addStringOption(
-                new SlashCommandAutocompleteStringOption()
+                new SlashCommandStringOption()
                     .setName('file')
                     .setDescription('path to the file')
                     .setRequired(true)
+                    .setAutocomplete(true)
             )
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
-        if (!hasPermission(undefined, interaction.member as GuildMember, 'MANAGE_GUILD')) {
-            await interaction.reply({ content: 'You are not allowed to use this command', ephemeral: true })
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!hasPermission(undefined, interaction.member as GuildMember, PermissionFlagsBits.ManageGuild)) {
+            await interaction.reply({ content: 'You are not allowed to use this command', flags: MessageFlags.Ephemeral })
             return
         }
         
@@ -49,7 +45,7 @@ export default class DumpCommand implements Command, IAutocompletableCommand {
         await interaction.editReply({
             content: `**File**: ${interaction.options.getString('file', true)}`,
             files: [
-                new MessageAttachment(filePath),
+                new AttachmentBuilder(filePath),
             ]
         })
     }

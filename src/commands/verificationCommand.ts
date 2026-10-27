@@ -1,6 +1,5 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, Guild, GuildMember, MessageActionRow, MessageButton } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChatInputCommandInteraction, GuildMember, MessageFlags, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
+import { resolveButtonStyle } from '../models/liveCompat'
 import { discordBot } from '..'
 import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { hasPermission } from '../utils'
@@ -11,13 +10,13 @@ export default class VerificationCommand implements Command {
         return new SlashCommandBuilder()
             .setName('verification')
             .setDescription('Display the Verification prompt')
-            .setDefaultPermission(discordBot.liveConfig.modules?.verification?.enabled ?? false)
+            .setDefaultMemberPermissions((discordBot.liveConfig.modules?.verification?.enabled ?? false) ? null : 0)
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!hasPermission(discordBot.liveConfig.modules?.verification?.permissions, interaction.member as GuildMember)) {
-            await interaction.reply({ content: 'You are not allowed to use this command', ephemeral: true })
+            await interaction.reply({ content: 'You are not allowed to use this command', flags: MessageFlags.Ephemeral })
             return
         }
         
@@ -38,12 +37,12 @@ export default class VerificationCommand implements Command {
         const message = new MessageLiveInteraction(liveInteraction)
         await message.replyToInteraction(interaction, {
             components: [
-                new MessageActionRow()
+                new ActionRowBuilder<ButtonBuilder>()
                     .addComponents(
-                        new MessageButton()
+                        new ButtonBuilder()
                             .setCustomId('verificationInteraction')
                             .setLabel(discordBot.liveConfig.modules?.verification?.button?.title ?? 'Verify')
-                            .setStyle(discordBot.liveConfig.modules?.verification?.button?.type ?? 'PRIMARY'),
+                            .setStyle(resolveButtonStyle(discordBot.liveConfig.modules?.verification?.button?.type, ButtonStyle.Primary)),
                     )
                     
             ]

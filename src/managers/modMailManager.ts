@@ -1,6 +1,5 @@
-import { CommandInteraction, Interaction, Message, MessageActionRow, MessageButton } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Message } from 'discord.js'
 import { discordBot } from '..'
-import { Constants } from '../constants'
 import { ModMailModule } from '../models/LiveConfig'
 
 export class ModMailManager {
@@ -10,7 +9,7 @@ export class ModMailManager {
 
     async handleMessage(message: Message) {
         console.log(`enabled: ${this.moduleConfig?.enabled}, type: ${message.channel.type}, bot: ${message.author.bot}`)
-        if (!this.moduleConfig?.enabled || message.channel.type != 'DM' || message.author.bot) return
+        if (!this.moduleConfig?.enabled || message.channel.type != ChannelType.DM || message.author.bot) return
         
         const member = await (await discordBot.guild).members.fetch(message.author.id)
         console.log(`handling message ${member.id}`)
@@ -19,15 +18,15 @@ export class ModMailManager {
         await message.reply({
             content: 'Would you like to forward this message to the server admins?',
             components: [
-                new MessageActionRow()
+                new ActionRowBuilder<ButtonBuilder>()
                     .addComponents(
-                        new MessageButton()
+                        new ButtonBuilder()
                             .setLabel('Yes')
-                            .setStyle('PRIMARY')
+                            .setStyle(ButtonStyle.Primary)
                             .setCustomId(`modMailInteraction#openThread&${message.id}`),
-                        new MessageButton()
+                        new ButtonBuilder()
                             .setLabel('No')
-                            .setStyle('SECONDARY')
+                            .setStyle(ButtonStyle.Secondary)
                             .setCustomId('modMailInteraction#cancel')
                     )
             ]

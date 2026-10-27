@@ -1,4 +1,4 @@
-import { ButtonInteraction, Message, MessageActionRow, MessageButton, MessageManager, ThreadChannel } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ChannelType, MessageFlags, ThreadChannel } from 'discord.js'
 import { discordBot } from '..'
 import { Constants } from '../constants'
 import { ModMailModule } from '../models/LiveConfig'
@@ -10,7 +10,7 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
     }
 
     async executeDefaultOption(interaction: ButtonInteraction): Promise<void> {
-        await interaction.reply({ content: 'Invalid option', ephemeral: true })
+        await interaction.reply({ content: 'Invalid option', flags: MessageFlags.Ephemeral })
     }
 
     async executeWithOption(option: string, interaction: ButtonInteraction): Promise<void> {
@@ -43,18 +43,17 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                 guild.channels.fetch(loggingChannelId)
             ])
 
-            if (!threadChannel?.isText() || threadChannel.type != 'GUILD_TEXT') {
+            if (!threadChannel?.isTextBased() || threadChannel.type != ChannelType.GuildText) {
                 throw new Error('thread channel is not text based')
             }
 
-            if (!loggingChannel?.isText()) {
+            if (!loggingChannel?.isTextBased()) {
                 throw new Error('logging channel is not text based')
             }
 
             let thread: ThreadChannel
             
-            const userDocument = discordBot.databaseManager.getUserDocument(interaction.user.id)
-            const existingThreadId = await userDocument.get('modMailThread')
+            const existingThreadId = discordBot.databaseManager.getModMailThread(interaction.user.id)
             const existingThread = existingThreadId != undefined ? await threadChannel.threads.fetch(existingThreadId) : undefined
 
             if (existingThread != undefined && !existingThread.archived) {
@@ -64,33 +63,33 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                     name: `ModMail by ${interaction.user.username} - ${interaction.user.id}`,
                     invitable: false,
                     autoArchiveDuration: 1440,
-                    type: 'GUILD_PRIVATE_THREAD',
+                    type: ChannelType.PrivateThread,
                 })
 
-                await userDocument.set('modMailThread', thread.id)
+                discordBot.databaseManager.setModMailThread(interaction.user.id, thread.id)
                 
                 await thread.members.add(interaction.user.id)
                 
                 await loggingChannel.send({
-                    content: `You've got Mail, @here! **${interaction.user.username}#${interaction.user.discriminator}** - ${interaction.user.id} opened a thread`,
+                    content: `You've got Mail, @here! **${interaction.user.tag}** - ${interaction.user.id} opened a thread`,
                     components: [
-                        new MessageActionRow()
+                        new ActionRowBuilder<ButtonBuilder>()
                             .addComponents(
-                                new MessageButton()
+                                new ButtonBuilder()
                                     .setLabel('Show Thread')
-                                    .setStyle('LINK')
+                                    .setStyle(ButtonStyle.Link)
                                     .setURL(`https://discord.com/channels/${Constants.DISCORD_GUILD_ID}/${thread.id}`),
-                                new MessageButton()
+                                new ButtonBuilder()
                                     .setLabel('Close Thread')
                                     .setCustomId(`modMailInteraction#closeThread&${threadChannelId}/${thread.id}`)
-                                    .setStyle('DANGER')
+                                    .setStyle(ButtonStyle.Danger)
                             )
                     ]
                 })
             }
 
             await thread.send({
-                content: `**User ID**: ${interaction.user.username}#${interaction.user.discriminator} - ${interaction.user.id}\n**Message**: ${message.cleanContent}\n**Attachments**:\n${message.attachments.map(x => x.proxyURL).join('\n')}`,
+                content: `**User ID**: ${interaction.user.tag} - ${interaction.user.id}\n**Message**: ${message.cleanContent}\n**Attachments**:\n${message.attachments.map(x => x.proxyURL).join('\n')}`,
                 allowedMentions: {
                     users: []
                 }
@@ -98,7 +97,7 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
 
             await interaction.editReply(`Successfully opened a private thread with the admins, please use <#${thread.id}> for further communication`)
         } else if (option.startsWith('closeThread')) {
-            await interaction.deferReply({ephemeral: true})
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
             const query = option.split('&')
             const threadId = query[1]
@@ -106,16 +105,16 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
             interaction.editReply({
                 content: `Are you sure you want to close the thread <@${threadId.split('/')[1]}>?`,
                 components: [
-                    new MessageActionRow()
+                    new ActionRowBuilder<ButtonBuilder>()
                         .addComponents(
-                            new MessageButton()
+                            new ButtonBuilder()
                                 .setLabel('Cancel')
-                                .setStyle('PRIMARY')
+                                .setStyle(ButtonStyle.Primary)
                                 .setCustomId('modMailInteraction#cancel'),
-                            new MessageButton()
+                            new ButtonBuilder()
                                 .setLabel('Yes')
                                 .setCustomId(`modMailInteraction#confirmCloseThread&${threadId}&${messageId}`)
-                                .setStyle('DANGER')
+                                .setStyle(ButtonStyle.Danger)
                         )
                 ]
             })
@@ -128,7 +127,7 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
             const guild = await discordBot.guild
 
             const threadChannel = await guild?.channels.fetch(threadChannelId)
-            if (!threadChannel?.isText()) {
+            if (threadChannel?.type != ChannelType.GuildText) {
                 await interaction.editReply('thread parent channel is not a text based')
                 return
             }
@@ -152,16 +151,16 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                 await thread.setArchived(true)
 
                 try {
-                    const ogMessage = await interaction.channel?.messages.fetch(messageId, {force: true})
+                    const ogMessage = await interaction.channel?.messages.fetch({ message: messageId, force: true })
                     if (ogMessage) {
                         await ogMessage.edit({
                             content: `~~${ogMessage.content}~~\n\nClosed by <@${interaction.user.id}>`,
                             components: [
-                                new MessageActionRow()
+                                new ActionRowBuilder<ButtonBuilder>()
                                     .addComponents(
-                                        new MessageButton()
+                                        new ButtonBuilder()
                                             .setLabel('Show Thread')
-                                            .setStyle('LINK')
+                                            .setStyle(ButtonStyle.Link)
                                             .setURL(`https://discord.com/channels/${Constants.DISCORD_GUILD_ID}/${thread.id}`)
                                     )
                             ]
@@ -170,8 +169,9 @@ export default class ModMailInteraction extends MultiButtonOptionInteraction {
                         throw new Error('Unable to fetch original message')
                     }
                 } catch(error: any) {
-                    await interaction.followUp({ephemeral: true, content: error.message})
-                    await interaction.channel?.send(`Thread <#${thread.id}> closed by <@${interaction.user.id}>`)
+                    await interaction.followUp({flags: MessageFlags.Ephemeral, content: error.message})
+                    if (interaction.channel?.isSendable())
+                        await interaction.channel.send(`Thread <#${thread.id}> closed by <@${interaction.user.id}>`)
                 }
             } else {
                 await interaction.editReply('Thread already closed')

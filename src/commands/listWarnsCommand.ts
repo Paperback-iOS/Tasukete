@@ -1,9 +1,7 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
+import { CacheType, ChatInputCommandInteraction, GuildMember, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { stripIndent } from 'common-tags'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, CacheType, GuildMember } from 'discord.js'
 import { discordBot } from '..'
-import { hasPermission, parseHumanDate } from '../utils'
+import { hasPermission } from '../utils'
 import { Command } from './command'
 
 export default class ListWarnsCommand implements Command {
@@ -24,19 +22,19 @@ export default class ListWarnsCommand implements Command {
                 .setDescription('the user to list the warns for')
                 .setRequired(true)
             )
-            .setDefaultPermission(this.moduleConfig?.enabled == true)
+            .setDefaultMemberPermissions((this.moduleConfig?.enabled == true) ? null : 0)
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
-        if (!hasPermission(this.warnConfig.permissions, interaction.member as GuildMember, 'MANAGE_ROLES')) {
+    async execute(interaction: ChatInputCommandInteraction<CacheType>): Promise<void> {
+        if (!hasPermission(this.warnConfig.permissions, interaction.member as GuildMember, PermissionFlagsBits.ManageRoles)) {
             throw new Error('You\'re not authorized to use this command')
         }
 
         await interaction.deferReply()
         
-        const user = interaction.options.getMember('user', true) as GuildMember
-        if (Array.isArray(user.roles)) {
+        const user = interaction.options.getMember('user')
+        if (!(user instanceof GuildMember)) {
             throw new Error('something went wrong, please report to Paper')
         }
         

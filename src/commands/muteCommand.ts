@@ -1,6 +1,4 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, CacheType, GuildMember } from 'discord.js'
+import { CacheType, ChatInputCommandInteraction, GuildMember, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { discordBot } from '..'
 import { hasPermission, parseHumanDate } from '../utils'
 import { Command } from './command'
@@ -33,30 +31,28 @@ export default class MuteCommand implements Command {
                 .setDescription('the reason for the mute')
                 .setRequired(true)
             )
-            .setDefaultPermission(this.moduleConfig?.enabled == true && this.moduleConfig.muteConfig?.muteRole != undefined)
+            .setDefaultMemberPermissions((this.moduleConfig?.enabled == true && this.moduleConfig.muteConfig?.muteRole != undefined) ? null : 0)
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
-        if (!hasPermission(this.muteConfig.permissions, interaction.member as GuildMember, 'MANAGE_ROLES')) {
+    async execute(interaction: ChatInputCommandInteraction<CacheType>): Promise<void> {
+        if (!hasPermission(this.muteConfig.permissions, interaction.member as GuildMember, PermissionFlagsBits.ManageRoles)) {
             throw new Error('You\'re not authorized to use this command')
         }
 
         await interaction.deferReply()
 
-        const user = interaction.options.getMember('user', true)
-        if (Array.isArray(user.roles)) {
+        const user = interaction.options.getMember('user')
+        if (!(user instanceof GuildMember)) {
             throw new Error('something went wrong, please report to Paper')
         }
 
         const duration = parseHumanDate(interaction.options.getString('duration', true))
         const reason = interaction.options.getString('reason', true)
 
-        const guild = await discordBot.guild
-
         const currentDate = new Date()
         await discordBot.moderationManager.muteMember(
-            user as GuildMember,
+            user,
             interaction.user,
             reason,
             duration

@@ -1,22 +1,19 @@
-import { CommandInteraction, CacheType, MessageEmbed } from 'discord.js'
+import { CacheType, ChannelType, ChatInputCommandInteraction, EmbedBuilder, Colors, GuildExplicitContentFilter, GuildVerificationLevel, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { Command } from './command'
-import { stripIndent } from 'common-tags'
 import { discordBot } from '..'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { SlashCommandBuilder } from '@discordjs/builders'
 
-const filterLevels = {
-    DISABLED: 'Off',
-    MEMBERS_WITHOUT_ROLES: 'No Role',
-    ALL_MEMBERS: 'Everyone',
+const filterLevels: Record<GuildExplicitContentFilter, string> = {
+    [GuildExplicitContentFilter.Disabled]: 'Off',
+    [GuildExplicitContentFilter.MembersWithoutRoles]: 'No Role',
+    [GuildExplicitContentFilter.AllMembers]: 'Everyone',
 }
   
-const verificationLevels = {
-    NONE: 'None',
-    LOW: 'Low',
-    MEDIUM: 'Medium',
-    HIGH: '(╯°□°）╯︵ ┻━┻',
-    VERY_HIGH: '┻━┻ ﾐヽ(ಠ益ಠ)ノ彡┻━┻',
+const verificationLevels: Record<GuildVerificationLevel, string> = {
+    [GuildVerificationLevel.None]: 'None',
+    [GuildVerificationLevel.Low]: 'Low',
+    [GuildVerificationLevel.Medium]: 'Medium',
+    [GuildVerificationLevel.High]: '(╯°□°）╯︵ ┻━┻',
+    [GuildVerificationLevel.VeryHigh]: '┻━┻ ﾐヽ(ಠ益ಠ)ノ彡┻━┻',
 }
   
 export default class ServerInfoCommand implements Command {
@@ -27,7 +24,7 @@ export default class ServerInfoCommand implements Command {
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
+    async execute(interaction: ChatInputCommandInteraction<CacheType>): Promise<void> {
         await interaction.deferReply()
 
         const guild = await discordBot.guild
@@ -40,16 +37,16 @@ export default class ServerInfoCommand implements Command {
         const emojis = guild.emojis.cache
         const owner = await guild.fetchOwner()
   
-        const embed = new MessageEmbed()
+        const embed = new EmbedBuilder()
             .setDescription('**Server Info**')
-            .setColor('PURPLE')
-            .setThumbnail(guild.iconURL() ?? '')
-            .addField(
-                'General',
-                [
+            .setColor(Colors.Purple)
+            .setThumbnail(guild.iconURL())
+            .addFields({
+                name: 'General',
+                value: [
                     `**Name:** ${guild.name}`,
                     `**ID:** ${guild.id}`,
-                    `**Owner:** ${owner.user.username}#${owner.user.discriminator} (${guild.ownerId})`,
+                    `**Owner:** ${owner.user.tag} (${guild.ownerId})`,
                     `**Boost Tier:** ${
                         guild.premiumTier
                             ? `Tier ${guild.premiumTier}`
@@ -63,10 +60,9 @@ export default class ServerInfoCommand implements Command {
                     }`,
                     `**Time Created:** <t:${(guild.createdTimestamp/1000).toFixed(0)}> <t:${(guild.createdTimestamp/1000).toFixed(0)}:R>`,
                 ].join('\n')
-            )
-            .addField(
-                'Statistics',
-                [
+            }, {
+                name: 'Statistics',
+                value: [
                     `**Role Count:** ${roles.length}`,
                     `**Emoji Count:** ${emojis.size}`,
                     `**Regular Emoji Count:** ${
@@ -78,17 +74,17 @@ export default class ServerInfoCommand implements Command {
                     `**Member Count:** ${guild.memberCount}`,
                     `**Bots:** ${members.filter((member) => member.user.bot).size}`,
                     `**Text Channels:** ${
-                        channels.filter((channel) => channel.type === 'GUILD_TEXT').size
+                        channels.filter((channel) => channel.type === ChannelType.GuildText).size
                     }`,
                     `**Voice Channels:** ${
-                        channels.filter((channel) => channel.type === 'GUILD_VOICE').size
+                        channels.filter((channel) => channel.type === ChannelType.GuildVoice).size
                     }`,
                     `**Stage Channels:** ${
-                        channels.filter((channel) => channel.type === 'GUILD_STAGE_VOICE').size
+                        channels.filter((channel) => channel.type === ChannelType.GuildStageVoice).size
                     }`,
                     `**Boost Count:** ${guild.premiumSubscriptionCount || '0'}`,
                 ].join('\n')
-            )
+            })
             .setFooter({
                 text: `Requested by ${interaction.user.username}`
             })

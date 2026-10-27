@@ -1,7 +1,6 @@
 import { Constants } from '../constants'
 import path from 'path'
 import { LiveInteractionPermissions } from './liveCommandManager'
-import yaml from 'js-yaml'
 import fs from 'fs'
 import { Collection, Message } from 'discord.js'
 import { constantsFromObject, loadYaml } from '../utils'
@@ -67,7 +66,7 @@ export class LiveTriggerManager {
                 { ...discordBot.liveConstants, ...constants }
             )
         } catch (error) {
-            throw new Error(`Unable to load trigger for ${match}\n${error}`)
+            throw new Error(`Unable to load trigger for ${match}\n${error}`, { cause: error })
         }
     }
 

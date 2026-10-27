@@ -32,6 +32,32 @@ export interface ModerationModule extends ModuleConfig {
     muteConfig?: UserMuteConfig
     warnConfig?: UserWarnConfig
     wordCensorConfig?: WordCensorConfig
+    spamDetection?: SpamDetectionConfig
+}
+
+// Detects members (usually compromised accounts) posting across many channels in a short time
+export interface SpamDetectionConfig {
+    enabled?: boolean
+
+    // Sliding window in which messages are compared
+    windowSeconds?: number
+    // Distinct channels containing the same message
+    duplicateChannelThreshold?: number
+    // Distinct channels containing links or attachments
+    mediaChannelThreshold?: number
+    // Distinct channels containing any message
+    channelThreshold?: number
+
+    timeoutDuration?: string
+    deleteMessages?: boolean
+    notifyUser?: boolean
+
+    // Defaults to the moderation logging channel
+    alertChannel?: ChannelId
+    alertRole?: RoleId
+
+    exemptRoles?: RoleId[]
+    ignoredChannels?: ChannelId[]
 }
 
 export interface WordCensorConfig {

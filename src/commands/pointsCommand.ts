@@ -1,18 +1,15 @@
-import { SlashCommandBuilder, SlashCommandStringOption } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9'
-import { CommandInteraction, Guild, GuildMember } from 'discord.js'
+import { ChatInputCommandInteraction, GuildMember, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { discordBot } from '..'
 import { hasPermission } from '../utils'
 import { Command, IModuleConfig } from './command'
 import {stripIndent } from 'common-tags'
-import axios from 'axios'
 
 export default class PointsCommand extends IModuleConfig('pointsSystem') implements Command {
     getCommandMetadata(): RESTPostAPIApplicationCommandsJSONBody {
         return new SlashCommandBuilder()
             .setName('points')
             .setDescription('Manage points of a user')
-            .setDefaultPermission(this.moduleConfig?.enabled ?? false)
+            .setDefaultMemberPermissions((this.moduleConfig?.enabled ?? false) ? null : 0)
             .addSubcommand(builder => builder
                 .setName('list')
                 .setDescription('Get the points of all users')
@@ -71,8 +68,8 @@ export default class PointsCommand extends IModuleConfig('pointsSystem') impleme
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
-        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, 'MANAGE_GUILD')) {
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, PermissionFlagsBits.ManageGuild)) {
             throw new Error('You dont have permission to use this command')
         }
 
@@ -81,14 +78,18 @@ export default class PointsCommand extends IModuleConfig('pointsSystem') impleme
         const subcommand = interaction.options.getSubcommand()
 
         if (subcommand == 'import') {
-            const message = await interaction.channel?.messages.fetch(interaction.options.getString('messageid', true), { force: true })
+            const message = await interaction.channel?.messages.fetch({ message: interaction.options.getString('messageid', true), force: true })
             const attachment = message?.attachments.first()
             if (!attachment) {
                 throw new Error('no attachment in message')
             }
 
             await interaction.editReply('Fetching attachment')
-            const file = (await axios.get(attachment.attachment.toString(), { responseType: 'arraybuffer' })).data.toString()
+            const response = await fetch(attachment.url)
+            if (!response.ok) {
+                throw new Error(`Unable to fetch attachment (${response.status})`)
+            }
+            const file = await response.text()
             
             await interaction.editReply('Importing points')
             const lines = file.toString().split('\n')
@@ -111,17 +112,15 @@ export default class PointsCommand extends IModuleConfig('pointsSystem') impleme
         if (subcommand == 'list') {
             const page = interaction.options.getNumber('page') ?? 1
             const limit = 50
-            const offset = (page - 1) * limit
-            const allPoints = await discordBot.pointsManager.getAllPoints()
-            const entries = Object.entries(allPoints)
+            const { entries, total } = discordBot.pointsManager.getPointsPage(page, limit)
             await interaction.editReply({
                 embeds: [{
                     title: 'Points list',
                     description: stripIndent`
-                    ${entries.length == 0 ? 'No Points' : ''}${entries.slice(offset, offset + limit).map(([userId, points]) => `<@${userId}>: ${points?.amount ?? 0}`).join('\n')}
+                    ${total == 0 ? 'No Points' : ''}${entries.map(({ userId, amount }) => `<@${userId}>: ${amount}`).join('\n')}
                     `,
                     footer: {
-                        text: `Page ${page} of ${Math.ceil(Object.keys(allPoints).length/limit)} (${entries.length})`
+                        text: `Page ${page} of ${Math.ceil(total/limit)} (${total})`
                     }
                 }]
             })
@@ -144,7 +143,7 @@ export default class PointsCommand extends IModuleConfig('pointsSystem') impleme
             )
         }
 
-        const points = await discordBot.pointsManager.getPointsForUser(user)
+        const points = discordBot.pointsManager.getPointsForUser(user)
 
         await interaction.editReply({
             embeds: [{

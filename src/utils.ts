@@ -1,62 +1,115 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 
-import {MessageOptions, MessageActionRow, MessageSelectMenu, MessageButton, GuildMember, Interaction, CommandInteraction, PermissionResolvable } from 'discord.js'
-import { LiveInteraction, LiveInteractionPermissions } from './managers/liveCommandManager'
-import { NodeVM, VM } from 'vm2'
+import { ApplicationCommandOptionType, GuildMember, Interaction, PermissionResolvable } from 'discord.js'
+import { LiveInteractionPermissions } from './managers/liveCommandManager'
+import ivm from 'isolated-vm'
 import yaml from 'js-yaml'
-import { create, all} from 'mathjs'
+import fs from 'fs'
 
-const utilityConstants = {
+const SANDBOX_MEMORY_LIMIT_MB = 128
+const SANDBOX_TIMEOUT_MS = 500
+const MATHJS_LOAD_TIMEOUT_MS = 5000
+
+// Helpers exposed to template expressions, re-declared inside the sandbox from their source
+const utilityFunctionsSource = [
     getValuesRecursive,
     keysToUpperCaseRecursive,
     cleanString,
     randomFromList,
     randomNumberBetween
+].map(fn => fn.toString()).join('\n')
+
+const mathjsSetupSource = `
+globalThis.mathjs = math.create(math.all)
+globalThis.mathjsEvaluate = mathjs.evaluate
+mathjs.import({
+    'import': function () { return 'Function \`import\` is disabled' },
+    'createUnit': function () { return 'Function \`createUnit\` is disabled' },
+    'evaluate': function () { return 'Function \`evaluate\` is disabled' },
+    'parse': function () { return 'Function \`parse\` is disabled' },
+}, { override: true })
+delete globalThis.math
+`
+
+interface Sandbox {
+    isolate: ivm.Isolate
+    utilityScript: ivm.Script
+    mathjsScript?: ivm.Script
+    mathjsSetupScript?: ivm.Script
 }
 
+let sandbox: Sandbox | undefined
+
+function getSandbox(): Sandbox {
+    if (sandbox && !sandbox.isolate.isDisposed) return sandbox
+
+    const isolate = new ivm.Isolate({ memoryLimit: SANDBOX_MEMORY_LIMIT_MB })
+    sandbox = {
+        isolate,
+        utilityScript: isolate.compileScriptSync(utilityFunctionsSource)
+    }
+
+    return sandbox
+}
+
+function loadMathjs(sandbox: Sandbox, context: ivm.Context) {
+    if (!sandbox.mathjsScript || !sandbox.mathjsSetupScript) {
+        const mathjsSource = fs.readFileSync(require.resolve('mathjs/lib/browser/math.js')).toString()
+        sandbox.mathjsScript = sandbox.isolate.compileScriptSync(mathjsSource, { filename: 'mathjs.js' })
+        sandbox.mathjsSetupScript = sandbox.isolate.compileScriptSync(mathjsSetupSource)
+    }
+
+    sandbox.mathjsScript.runSync(context, { timeout: MATHJS_LOAD_TIMEOUT_MS })
+    sandbox.mathjsSetupScript.runSync(context, { timeout: MATHJS_LOAD_TIMEOUT_MS })
+}
+
+function evaluateInSandbox(code: string, constants: any): any {
+    const sandbox = getSandbox()
+    const context = sandbox.isolate.createContextSync()
+
+    try {
+        const jail = context.global
+        for (const [key, value] of Object.entries(constants ?? {})) {
+            jail.setSync(key, new ivm.ExternalCopy(value).copyInto())
+        }
+
+        sandbox.utilityScript.runSync(context)
+        if (code.includes('mathjs')) {
+            loadMathjs(sandbox, context)
+        }
+
+        return context.evalSync(code, { timeout: SANDBOX_TIMEOUT_MS, copy: true })
+    } finally {
+        context.release()
+    }
+}
+
+// Substitutes `${...}` and `<$js ... $>` templates in a single pass, evaluated text is never re-scanned
 function substituteTemplateLiterals(str: string, constants: any): any {
-    let templateRegex = /(?:\$\{([\s\S]*?)\}|<\$js([\s\S]*?)\$>)/g
-    let match
-    while ((match = templateRegex.exec(str)) != undefined) {
-        if (match.length <= 1) continue
-        
+    const matches = [...str.matchAll(/(?:\$\{([\s\S]*?)\}|<\$js([\s\S]*?)\$>)/g)]
+    if (matches.length == 0) return str
+
+    const evaluate = (match: RegExpExecArray) => {
         try {
-            const mathjs = create(all)
-            const mathjsEvaluate = mathjs.evaluate
-            mathjs.import({
-                'import': function () { return 'Function `import` is disabled' },
-                'createUnit': function () { return 'Function `createUnit` is disabled' },
-                'evaluate': function () { return 'Function `evaluate` is disabled' },
-                'parse': function () { return 'Function `parse` is disabled' },
-            }, { override: true })
-
-            const result = new VM({
-                allowAsync: false,
-                wasm: false,
-                eval: true,
-                timeout: 500,
-                sandbox: {
-                    ...constants,
-                    ...utilityConstants,
-                    mathjs,
-                    mathjsEvaluate
-                }
-            }).run(match[1] ?? match[2])
-
-            const start = str.slice(0, match.index)
-            const end = str.slice(templateRegex.lastIndex)
-            if(start.length > 0 || end.length > 0)
-                str = str.slice(0, match.index) + result + str.slice(templateRegex.lastIndex)
-            else 
-                return result
-
-            templateRegex = /(?:\$\{([\s\S]*?)\}|<\$js([\s\S]*?)\$>)/g
+            return evaluateInSandbox(match[1] ?? match[2], constants)
         } catch(error: any) {
-            throw new Error(`Error while evaluating JS:${match.index} \n${error.message}\n${error.stack}`)
+            throw new Error(`Error while evaluating JS:${match.index} \n${error.message}\n${error.stack}`, { cause: error })
         }
     }
 
-    return str
+    // A template spanning the whole string keeps the evaluated value's type
+    if (matches.length == 1 && matches[0][0].length == str.length) {
+        return evaluate(matches[0])
+    }
+
+    let result = ''
+    let lastIndex = 0
+    for (const match of matches) {
+        result += str.slice(lastIndex, match.index) + evaluate(match)
+        lastIndex = match.index + match[0].length
+    }
+
+    return result + str.slice(lastIndex)
 }
 
 export function constantsFromObject(obj: GuildMember | Interaction): any {
@@ -84,15 +137,15 @@ export function constantsFromObject(obj: GuildMember | Interaction): any {
             'ID': obj.user.id,
             'USERNAME': obj.user.username,
             'TAG': obj.user.discriminator,
-            'AVATAR': obj.user.displayAvatarURL({ size: 4096, format: 'png' })
+            'AVATAR': obj.user.displayAvatarURL({ size: 4096, extension: 'png' })
         }
     }
 
-    if ((obj as Interaction).isCommand?.()) {
-        const interaction = obj as CommandInteraction
+    if (!(obj instanceof GuildMember) && obj.isChatInputCommand()) {
+        const interaction = obj
 
         for (const option of interaction.options.data) {
-            if (option.type == 'SUB_COMMAND' || option.type == 'SUB_COMMAND_GROUP') continue
+            if (option.type == ApplicationCommandOptionType.Subcommand || option.type == ApplicationCommandOptionType.SubcommandGroup) continue
             if (!constants['$OPTIONS']) constants['$OPTIONS'] = {}
 
             if(typeof option.value == 'object')

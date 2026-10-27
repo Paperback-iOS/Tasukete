@@ -5,17 +5,17 @@ import { IExecutableInteraction } from './interaction'
 
 export default class LiveInteractionSelect implements IExecutableInteraction {
     async execute(interaction: Interaction): Promise<void> {
-        if (!interaction.isSelectMenu() && !interaction.isButton()) return
+        if (!interaction.isStringSelectMenu() && !interaction.isButton()) return
 
-        if ((interaction.message.flags?.valueOf() ?? 0) & MessageFlags.resolve('EPHEMERAL')) {
+        if (interaction.message.flags.has(MessageFlags.Ephemeral)) {
             await interaction.deferUpdate()
         } else {
-            await interaction.deferReply({ephemeral: true})
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral })
         }
 
         let liveInteractionId: string
 
-        if (interaction.isSelectMenu()) {
+        if (interaction.isStringSelectMenu()) {
             if (interaction.values.length != 1) {
                 await interaction.editReply('**ERROR:** Invalid selection')
                 return

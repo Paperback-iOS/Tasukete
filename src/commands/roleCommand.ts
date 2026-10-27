@@ -1,10 +1,6 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, Guild, GuildMember, GuildMemberRoleManager, MessageActionRow, MessageButton, RoleManager } from 'discord.js'
+import { ChatInputCommandInteraction, GuildMember, GuildMemberRoleManager, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { discordBot } from '..'
 import { ModerationActionType } from '../managers/databaseManager'
-import { RoleKit, RoleKitsModule } from '../models/LiveConfig'
-import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { parseHumanDate } from '../utils'
 import { Command } from './command'
 
@@ -36,10 +32,10 @@ export default class RoleCommand implements Command {
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         await interaction.deferReply()
 
-        if (!interaction.memberPermissions?.has('MANAGE_ROLES')) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
             await interaction.editReply('You are not authorized to use this command')
             return
         }

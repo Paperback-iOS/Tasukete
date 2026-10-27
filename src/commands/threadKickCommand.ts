@@ -1,6 +1,4 @@
-import { SlashCommandBuilder, SlashCommandMentionableOption, SlashCommandUserOption } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, ThreadChannel } from 'discord.js'
+import { ChatInputCommandInteraction, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder, SlashCommandUserOption, ThreadChannel } from 'discord.js'
 import { Command } from './command'
 
 export default class ThreadKickCommand implements Command {
@@ -17,10 +15,10 @@ export default class ThreadKickCommand implements Command {
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
-        await interaction.deferReply({ephemeral: true})
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
-        if (!interaction.memberPermissions?.has('MANAGE_THREADS')) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageThreads)) {
             interaction.editReply('You do not have permission to execute this command.')
             return
         }

@@ -1,11 +1,7 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction, Emoji, Guild, GuildMember, Message, MessageActionRow, MessageButton } from 'discord.js'
+import { ChatInputCommandInteraction, GuildMember, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { discordBot } from '..'
-import { LiveInteractionManager } from '../managers/liveInteractionManager'
-import { ReactRolesConfig, ReactRolesModule, RoleKit, RoleKitsModule } from '../models/LiveConfig'
-import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
-import { constantsFromObject, hasPermission } from '../utils'
+import { ReactRolesConfig, ReactRolesModule } from '../models/LiveConfig'
+import { hasPermission } from '../utils'
 import { Command } from './command'
 
 export default class ReactRolesCommand implements Command {
@@ -26,17 +22,17 @@ export default class ReactRolesCommand implements Command {
                 .setDescription('The config to use')
                 .setRequired(true)
                 .addChoices(
-                    Object.keys(this.configs)
-                        .map(key => [key, key])
+                    ...Object.keys(this.configs)
+                        .map(key => ({ name: key, value: key }))
                 )
             )
-            .setDefaultPermission(this.moduleConfig?.enabled ?? false)
+            .setDefaultMemberPermissions((this.moduleConfig?.enabled ?? false) ? null : 0)
             .toJSON()
     }
 
-    async execute(interaction: CommandInteraction): Promise<void> {
-        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, 'MANAGE_ROLES')) {
-            await interaction.reply({ content: 'You dont have permission to use this command', ephemeral: true })
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!hasPermission(this.moduleConfig?.permissions, interaction.member as GuildMember, PermissionFlagsBits.ManageRoles)) {
+            await interaction.reply({ content: 'You dont have permission to use this command', flags: MessageFlags.Ephemeral })
             return
         }
 
@@ -45,12 +41,12 @@ export default class ReactRolesCommand implements Command {
         if (!config) {
             await interaction.reply({
                 content: `Config with the name ${configId} does not exist`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             })
             return
         }
 
-        const message = await interaction.reply({
+        const response = await interaction.reply({
             embeds: [{
                 title: config.title ?? 'Reaction Roles',
                 color: config.color,
@@ -66,12 +62,13 @@ export default class ReactRolesCommand implements Command {
                 image: config.image ? {
                     url: config.image
                 } : undefined,
-                timestamp: new Date()
+                timestamp: new Date().toISOString()
             }],
-            fetchReply: true
+            withResponse: true
         })
 
-        await Promise.all(Object.keys(config.reactions ?? {}).map(emoji => (message as Message).react?.(emoji)))
+        const message = response.resource?.message
+        await Promise.all(Object.keys(config.reactions ?? {}).map(emoji => message?.react(emoji)))
     }
 
 }

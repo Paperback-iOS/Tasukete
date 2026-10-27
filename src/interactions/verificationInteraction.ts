@@ -1,11 +1,11 @@
-import { ButtonInteraction, CacheType, GuildMember, MessageActionRow, MessageButton } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, GuildMember, MessageFlags } from 'discord.js'
 import { discordBot } from '..'
 import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { MultiButtonOptionInteraction } from './interaction'
 
 export default class VerificationInteraction extends MultiButtonOptionInteraction {
     async executeDefaultOption(interaction: ButtonInteraction): Promise<void> {
-        await interaction.deferReply({ephemeral: true})
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
         const liveInteractionId = discordBot.liveConfig.modules?.verification?.interactions?.rulesAcknowledgementInteractionPath
         if (!liveInteractionId) {
@@ -22,11 +22,11 @@ export default class VerificationInteraction extends MultiButtonOptionInteractio
         await new MessageLiveInteraction(liveInteraction)
             .replyToInteraction(interaction, {
                 components: [
-                    new MessageActionRow()
+                    new ActionRowBuilder<ButtonBuilder>()
                         .addComponents([
-                            new MessageButton()
+                            new ButtonBuilder()
                                 .setLabel('Accept')
-                                .setStyle('DANGER')
+                                .setStyle(ButtonStyle.Danger)
                                 .setCustomId('verificationInteraction#accept'),
                         ])
                 ]
@@ -34,7 +34,7 @@ export default class VerificationInteraction extends MultiButtonOptionInteractio
     }
 
     async executeWithOption(option: string, interaction: ButtonInteraction<CacheType>): Promise<void> {
-        await interaction.deferReply({ephemeral: true})
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
         switch (option) {
         case 'accept':
@@ -56,12 +56,12 @@ export default class VerificationInteraction extends MultiButtonOptionInteractio
                 }
 
                 await member.roles.add(verifiedRoleId)
-                await interaction.followUp({ content: 'Enjoy your stay!', ephemeral: true })
+                await interaction.followUp({ content: 'Enjoy your stay!', flags: MessageFlags.Ephemeral })
             } catch (error: any) {
-                await interaction.followUp({ content: error.message, ephemeral: true })
+                await interaction.followUp({ content: error.message, flags: MessageFlags.Ephemeral })
             }
         } else {
-            await interaction.followUp({ content: 'Something went wrong.', ephemeral: true })
+            await interaction.followUp({ content: 'Something went wrong.', flags: MessageFlags.Ephemeral })
         }
     }
 

@@ -1,4 +1,4 @@
-import { ButtonInteraction, CacheType, Interaction, MessageFlags } from 'discord.js'
+import { ButtonInteraction, Interaction } from 'discord.js'
 
 export interface IExecutableInteraction {
     execute(interaction: Interaction): Promise<void>

@@ -1,18 +1,10 @@
-import AdmZip from 'adm-zip'
 import { Constants } from '../constants'
-import { https } from 'follow-redirects'
 import fs from 'fs'
-import fsp from 'fs/promises'
-import { REST } from '@discordjs/rest'
 import path from 'path'
-import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandsOnlyBuilder } from '@discordjs/builders'
-import { RESTPatchAPIApplicationCommandJSONBody, Routes } from 'discord-api-types/v9'
+import { APIEmbed, Collection, EmbedData, RESTPostAPIApplicationCommandsJSONBody, SelectMenuComponentOptionData, SharedSlashCommandOptions, SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder } from 'discord.js'
 import yaml from 'js-yaml'
-import Collection from '@discordjs/collection'
-import { MessageButtonOptions, MessageEmbedOptions, MessageSelectOptionData } from 'discord.js'
 import { IAutocompletableCommand, IExecutableCommand } from '../commands/command'
 import LiveCommand from '../commands/liveCommand'
-import { SharedSlashCommandOptions } from '@discordjs/builders/dist/interactions/slashCommands/mixins/CommandOptions'
 import { loadYaml, cleanString } from '../utils'
 import { discordBot } from '..'
 
@@ -21,18 +13,29 @@ export interface LiveInteractionPermissions {
     whitelist?: string[]
 }
 
+// Button and embed shapes follow the discord.js v13 options the live repo was written for,
+// see models/liveCompat.ts
+export interface LiveButtonOptions {
+    customId?: string
+    label?: string
+    style?: string | number
+    url?: string
+    emoji?: string
+    disabled?: boolean
+}
+
 export interface LiveInteraction {
     content?: string
-    options?: MessageSelectOptionData[]
-    embeds?: MessageEmbedOptions[]
-    buttons?: MessageButtonOptions[]
+    options?: SelectMenuComponentOptionData[]
+    embeds?: (EmbedData | APIEmbed)[]
+    buttons?: LiveButtonOptions[]
     permissions?: LiveInteractionPermissions
 }
 
 export class LiveCommandManager {
     private loadedCommands = new Collection<string, string>()
 
-    getLiveCommands(): RESTPatchAPIApplicationCommandJSONBody[] {
+    getLiveCommands(): RESTPostAPIApplicationCommandsJSONBody[] {
         this.loadedCommands.clear()
 
         this.loadLiveCommands()
@@ -67,8 +70,6 @@ export class LiveCommandManager {
                             .setDescription(value.description)
                         
                         if (typeof value.options == 'object') {
-                            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                            // @ts-ignore
                             this.addOptions(builder, value.options)
                         }
                 
@@ -130,11 +131,12 @@ export class LiveCommandManager {
             )
         } catch (error) {
             console.log(error)
-            throw new Error(`Unable to load live command at ${commandName}\n${error}`)
+            throw new Error(`Unable to load live command at ${commandName}\n${error}`, { cause: error })
         }
     }
 
-    private addOptions(command: SlashCommandBuilder, options: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private addOptions(command: SharedSlashCommandOptions<any>, options: any) {
         for (const optionName of Object.keys(options)) {
             const option = options[optionName]
 

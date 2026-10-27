@@ -1,4 +1,4 @@
-import { Interaction, MessageActionRow, MessageButton, MessageFlags, MessageInteraction } from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, Interaction, MessageFlags } from 'discord.js'
 import { discordBot } from '..'
 import { MessageLiveInteraction } from '../models/MessageLiveInteraction'
 import { IExecutableInteraction } from './interaction'
@@ -7,10 +7,10 @@ export default class SelfHelpInteraction implements IExecutableInteraction {
     async execute(interaction: Interaction): Promise<void> {
         if (!interaction.isButton()) return
 
-        if ((interaction.message.flags?.valueOf() ?? 0) & MessageFlags.resolve('EPHEMERAL')) {
+        if (interaction.message.flags.has(MessageFlags.Ephemeral)) {
             await interaction.deferUpdate()
         } else {
-            await interaction.deferReply({ ephemeral: true })
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral })
             console.log('defering reply')
         }
 
@@ -24,12 +24,12 @@ export default class SelfHelpInteraction implements IExecutableInteraction {
             new MessageLiveInteraction(liveInteraction)
                 .toMessage({
                     components: [
-                        new MessageActionRow()
+                        new ActionRowBuilder<ButtonBuilder>()
                             .setComponents([
-                                new MessageButton()
+                                new ButtonBuilder()
                                     .setLabel('My issue is not listed')
                                     .setCustomId('supportThreadAcknowledgementInteraction')
-                                    .setStyle('PRIMARY'),
+                                    .setStyle(ButtonStyle.Primary),
                             ])
                     ]
                 })

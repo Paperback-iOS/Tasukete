@@ -3,7 +3,7 @@ import path from 'path'
 
 class _Constants {
     constructor() {
-        dotenv.config()
+        dotenv.config({ quiet: true })
     }
 
     get BOT_INTERNAL_LOG_CHANNEL(): string {

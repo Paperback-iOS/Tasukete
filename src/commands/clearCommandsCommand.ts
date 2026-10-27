@@ -1,6 +1,4 @@
-import { SlashCommandBuilder } from '@discordjs/builders'
-import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types'
-import { CommandInteraction } from 'discord.js'
+import { ChatInputCommandInteraction, MessageFlags, PermissionFlagsBits, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } from 'discord.js'
 import { discordBot } from '..'
 import { Command } from './command'
 
@@ -11,13 +9,13 @@ export default class ClearCommandsCommand implements Command {
             .setDescription('Clears all the commands')
             .toJSON()
     }
-    async execute(interaction: CommandInteraction): Promise<void> {
-        if (!interaction.memberPermissions?.has('MANAGE_GUILD')) {
-            await interaction.reply({content: 'Unauthorized to use this command', ephemeral: true})
+    async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+            await interaction.reply({content: 'Unauthorized to use this command', flags: MessageFlags.Ephemeral})
             return
         }
         
-        await interaction.deferReply({ephemeral: true})
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral })
         await discordBot.unloadCommands()
         await interaction.editReply('Unloaded commands!')
     }

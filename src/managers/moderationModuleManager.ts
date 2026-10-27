@@ -1,10 +1,10 @@
 
 import { stripIndent } from 'common-tags'
-import { GuildMember, Message, MessageOptions, User } from 'discord.js'
+import { APIEmbed, GuildMember, Message, User } from 'discord.js'
 import { discordBot } from '..'
 import { UserWarnConfig } from '../models/LiveConfig'
 import { parseHumanDate } from '../utils'
-import { ModerationAction, ModerationActionType, UserData } from './databaseManager'
+import { ModerationAction, ModerationActionType, UserWarn } from './databaseManager'
 import { MutexBasedManager } from './mutexBasedManager'
 
 export class ModerationModuleManager extends MutexBasedManager {
@@ -21,29 +21,22 @@ export class ModerationModuleManager extends MutexBasedManager {
 
     async processTasks() {
         await this.getMutex(this.DEFAULT_MUTEX_ID).runExclusive(async () => {
-            const actionQueue = this.getAllQueuedModerationActions()
-            for (const document of Object.values(actionQueue)) {
-                const action = document.readOnlyValue()
-
-                if (Date.now() < action.executionTime.getTime()) continue
-        
+            for (const { name, action } of discordBot.databaseManager.getDueModerationActions()) {
                 await this.handleModerationAction(action)
-                await document.deleteDocument()
+                discordBot.databaseManager.deleteModerationAction(name)
             }
         })
     }
 
     getAllQueuedModerationActions() {
-        return discordBot.databaseManager.getAllQueuedModerationActions(0, Infinity)
+        return discordBot.databaseManager.getAllQueuedModerationActions()
     }
 
-    async getWarnsForUser(userId: string) {
-        const userDocument = discordBot.databaseManager.getUserDocument(userId)
-        return await userDocument.get('warns')
+    getWarnsForUser(userId: string) {
+        return discordBot.databaseManager.getWarns(userId)
     }
 
     async warnMember(member: GuildMember, moderator: User, reason: string) {
-        const document = discordBot.databaseManager.getUserDocument(member.id)
         const date = new Date()
         const moderationAction: ModerationAction = {
             executionTime: date,
@@ -54,10 +47,10 @@ export class ModerationModuleManager extends MutexBasedManager {
             target: member.id
         }
         const guild = await discordBot.guild
-        const user = document.readOnlyValue()
+        const warns = discordBot.databaseManager.getWarns(member.id)
 
         const action = this.getWarnAction(
-            user.warns,
+            warns,
             this.moduleConfig?.warnConfig?.levels,
             this.moduleConfig?.warnConfig?.cooldownPeriod
         )
@@ -92,12 +85,12 @@ export class ModerationModuleManager extends MutexBasedManager {
             break
         }
 
-        await document.set('warns', [...(user.warns ?? []), {
+        discordBot.databaseManager.addWarn(member.id, {
             date: date,
             moderator: moderator.id,
             reason: reason,
             action: action
-        }])
+        })
 
         await this.logModerationAction(moderationAction)
 
@@ -108,7 +101,7 @@ export class ModerationModuleManager extends MutexBasedManager {
         }
     }
 
-    getWarnAction(warns: UserData['warns'], levels: UserWarnConfig['levels'], cooldownPeriod: UserWarnConfig['cooldownPeriod']) {
+    getWarnAction(warns: UserWarn[] | undefined, levels: UserWarnConfig['levels'], cooldownPeriod: UserWarnConfig['cooldownPeriod']) {
         if (!levels || levels.length == 0) return undefined
         if (!warns) return levels[0]
 
@@ -196,7 +189,7 @@ export class ModerationModuleManager extends MutexBasedManager {
         )
     }
 
-    getEmbedForModerationAction(action: ModerationAction): NonNullable<MessageOptions['embeds']>[0] {
+    getEmbedForModerationAction(action: ModerationAction): APIEmbed {
         return {
             title: 'Moderation Action',
             description: stripIndent`
@@ -227,10 +220,8 @@ export class ModerationModuleManager extends MutexBasedManager {
     }
 
     async queueModerationAction(name: string, action: ModerationAction) {
-        await this.getMutex(this.DEFAULT_MUTEX_ID).runExclusive(async () => {
-            await discordBot.databaseManager.moderationQueueCollection.addDocument(
-                name, action
-            )
+        await this.getMutex(this.DEFAULT_MUTEX_ID).runExclusive(() => {
+            discordBot.databaseManager.queueModerationAction(name, action)
         })
     }
 
@@ -268,6 +259,7 @@ export class ModerationModuleManager extends MutexBasedManager {
                 try {
                     await this.warnMember(message.member, guild.client.user, `Bad word usage: \`${match[0]}\``)
                 } catch {
+                    if (!message.channel.isSendable()) continue
                     const notice = await message.channel.send({
                         content: 'User warned and message was deleted due to bad word usage.'
                     })
@@ -278,6 +270,7 @@ export class ModerationModuleManager extends MutexBasedManager {
                 try {
                     await message.member.send(`Message deleted due to bad word usage: \`${match[0]}\``)
                 } catch {
+                    if (!message.channel.isSendable()) continue
                     const notice = await message.channel.send({
                         content: 'Message was deleted due to bad word usage.'
                     })

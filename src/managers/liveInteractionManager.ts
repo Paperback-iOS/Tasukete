@@ -1,9 +1,7 @@
 import { Constants } from '../constants'
 import path from 'path'
-import { LiveInteraction, LiveCommandManager } from './liveCommandManager'
-import yaml from 'js-yaml'
+import { LiveInteraction } from './liveCommandManager'
 import fs from 'fs'
-import { Collection, CommandInteractionOptionResolver } from 'discord.js'
 import { loadYaml } from '../utils'
 import { discordBot } from '..'
 
@@ -50,7 +48,7 @@ export class LiveInteractionManager {
                 { ...discordBot.liveConstants, ...constants }
             )
         } catch (error) {
-            throw new Error(`Unable to load interaction ${interactionName}\n${error}`)
+            throw new Error(`Unable to load interaction ${interactionName}\n${error}`, { cause: error })
         }
     }
 }
