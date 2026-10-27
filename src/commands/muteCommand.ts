@@ -48,6 +48,10 @@ export default class MuteCommand implements Command {
         }
 
         const duration = parseHumanDate(interaction.options.getString('duration', true))
+        if (duration <= 0) {
+            await interaction.editReply('Invalid duration. **Format:** <number> min/hr/day/wk/mth/yr')
+            return
+        }
         const reason = interaction.options.getString('reason', true)
 
         const currentDate = new Date()

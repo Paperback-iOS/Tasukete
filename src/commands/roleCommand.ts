@@ -26,7 +26,7 @@ export default class RoleCommand implements Command {
             )
             .addStringOption(builder => builder
                 .setName('duration')
-                .setDescription('Accepted format: <number> min(s)/hr(s)/day(s)/month(s)/year(s)')
+                .setDescription('Accepted format: <number> min(s)/hr(s)/day(s)/week(s)/month(s)/year(s)')
                 .setRequired(false)
             )
             .toJSON()
@@ -55,7 +55,7 @@ export default class RoleCommand implements Command {
         }
 
         if (rawDuration && duration == 0) {
-            await interaction.editReply('Invalid duration. **Format:** <number> min/hr/day/mth/yr')
+            await interaction.editReply('Invalid duration. **Format:** <number> min/hr/day/wk/mth/yr')
             return
         }
 

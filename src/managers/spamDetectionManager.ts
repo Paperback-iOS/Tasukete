@@ -118,8 +118,14 @@ export class SpamDetectionManager extends MutexBasedManager {
     }
 
     get timeoutDuration(): number {
-        const duration = parseHumanDate(this.moduleConfig?.timeoutDuration ?? DEFAULT_TIMEOUT_DURATION)
-        return Math.min(duration > 0 ? duration : parseHumanDate(DEFAULT_TIMEOUT_DURATION), MAX_TIMEOUT_MS)
+        const configured = this.moduleConfig?.timeoutDuration ?? DEFAULT_TIMEOUT_DURATION
+        let duration = parseHumanDate(configured)
+        if (duration <= 0) {
+            console.log(`[SPAM_DETECTION] invalid timeoutDuration "${configured}", using ${DEFAULT_TIMEOUT_DURATION}`)
+            duration = parseHumanDate(DEFAULT_TIMEOUT_DURATION)
+        }
+
+        return Math.min(duration, MAX_TIMEOUT_MS)
     }
 
     constructor() {

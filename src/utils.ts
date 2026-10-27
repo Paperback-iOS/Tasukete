@@ -267,7 +267,7 @@ export async function invokeRepeatedly(func: () => Promise<void> | void, interva
 }
 
 export function parseHumanDate(str: string) {
-    const matches = str.matchAll(/(\d+)\s?([A-z]+)/gi)
+    const matches = str.matchAll(/(\d+)\s?([a-z]+)/gi)
     let time = 0
     for (const match of matches) {
         match.shift()
@@ -282,6 +282,8 @@ function parseDateComponent(str: string) {
         return 3.156e+10
     case 'm': case 'min': case 'mins': case 'minute': case 'minutes':
         return 6e+4
+    case 'w': case 'wk': case 'wks': case 'week': case 'weeks':
+        return 6.048e+8
     case 'd': case 'day': case 'days':
         return 8.64e+7
     case 'h': case 'hr': case 'hrs': case 'hour': case 'hours':
